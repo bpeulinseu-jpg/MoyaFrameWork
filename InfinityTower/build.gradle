@@ -1,0 +1,3 @@
+dependencies {
+    compileOnly project(':Core') // CoreFramework 사용
+}

@@ -1,0 +1,4 @@
+rootProject.name = 'MyServerFramework'
+include 'Core'
+include 'TestAddon'
+include 'InfinityTower'

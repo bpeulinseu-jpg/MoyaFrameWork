@@ -1,0 +1,15 @@
+{
+  "test_addon.effect": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "test_addon:effect",
+        "stream": false
+      }
+    ]
+  },
+  "test_addon.magic_cast": {
+    "category": "player",
+    "sounds": [{ "name": "test_addon:magic", "stream": false }]
+  }
+}

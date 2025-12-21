@@ -1,0 +1,4 @@
+dependencies {
+    // 컴파일할 때 Core 프로젝트의 코드를 참조함
+    compileOnly project(':Core')
+}

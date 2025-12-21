@@ -1,0 +1,20 @@
+name: TestAddon
+version: ${version}
+main: com.server.addon.test.TestAddonPlugin
+api-version: 1.20
+depend: [Core] # Core가 먼저 로드되어야 함
+authors: [ Architect ]
+commands:
+
+
+  getbat:
+    description: 테스트 빠따 지급
+
+  test:
+    description: /test hud 또는 /test gui 또는 /test dynamic
+
+  getore:
+    description: 테스트 루비 지급
+
+  checkitem:
+     description: 손에 든 아이템 식별

@@ -1,0 +1,12 @@
+name: Core
+version: ${version}
+main: com.server.core.CorePlugin
+api-version: 1.20
+authors: [ Architect ]
+commands:
+  core:
+    description: CoreFramework 메인 관리 명령어
+    usage: /core <reload/items/glyphs/sounds/mobs/inspect <item/hud>/addons>
+    aliases: [cf]  # /cf 로도 사용 가능
+    permission: core.admin
+    permission-message: "§c권한이 없습니다."

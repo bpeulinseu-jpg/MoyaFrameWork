@@ -1,0 +1,5 @@
+// Core 전용 설정 (필요시 추가)
+dependencies {
+    // 추가 라이브러리가 필요하면 여기에 작성
+    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+}

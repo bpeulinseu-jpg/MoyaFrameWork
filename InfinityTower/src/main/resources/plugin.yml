@@ -1,0 +1,9 @@
+name: InfinityTower
+version: 1.0.0
+main: com.server.tower.TowerPlugin
+api-version: 1.20
+depend: [Core]
+commands:
+  tower:
+    description: 타워 관리 명령어
+    usage: /tower <enter|leave|shop|stat|---|>
