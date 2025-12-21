@@ -5,6 +5,8 @@ import com.server.core.api.CoreProvider;
 import com.server.tower.game.*;
 import com.server.tower.item.EnhanceManager;
 import com.server.tower.item.ItemGenerator;
+import com.server.tower.system.transcendence.TranscendenceGui;
+import com.server.tower.system.transcendence.TranscendenceManager;
 import com.server.tower.ui.RepairUI;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,6 +44,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     private RepairUI repairUI;
     private PerkListener perkListener;
     private EnhanceManager enhanceManager;
+    private TranscendenceManager transcendenceManager;
 
 
     @Override
@@ -64,6 +67,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         this.socketingUI = new SocketingUI(this);
         this.perkListener = new PerkListener(this);
         this.repairUI = new RepairUI(this);
+        this.transcendenceManager = new TranscendenceManager(this);
         // [수정] 매니저를 먼저 생성
         this.enhanceManager = new EnhanceManager();
         // UI에 매니저를 주입
@@ -174,6 +178,11 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
             return true;
         }
 
+        // 초월 gui 열기 (tower transcend)
+        if (args[0].equalsIgnoreCase("transcend")) {
+            new TranscendenceGui(this).open(player);
+        }
+
         // 랜덤 방어구 생성 (/tower armor)
         if (args[0].equalsIgnoreCase("armor")) {
             int level = args.length > 1 ? Integer.parseInt(args[1]) : 1;
@@ -250,4 +259,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     public SocketingUI getSocketingUI() { return socketingUI; }
     public PerkListener getPerkListener() { return perkListener; }
     public RepairUI getRepairUI() { return repairUI; }
+    public TranscendenceManager getTranscendenceManager() {
+        return transcendenceManager;
+    }
 }
