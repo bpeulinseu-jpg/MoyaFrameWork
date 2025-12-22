@@ -38,15 +38,24 @@ public class EnhanceManager {
         return item;
     }
 
-    private EnhanceResult calculateResult(int level, boolean lucky, boolean protection) {
-        double roll = random.nextDouble() * 100; // 0.0 ~ 100.0
-        double successChance;
+    //
+    /**
+     * [추가] 레벨별 기본 성공 확률 반환
+     * UI 표시 및 결과 계산에서 공통으로 사용
+     */
+    public double getBaseSuccessChance(int level) {
+        if (level < 5) return 100.0;
+        else if (level < 9) return 60.0;
+        else if (level < 12) return 40.0;
+        else return 20.0;
+    }
 
-        // 확률 테이블
-        if (level < 5) successChance = 100.0;
-        else if (level < 9) successChance = 60.0;
-        else if (level < 12) successChance = 40.0;
-        else successChance = 20.0;
+    // 강화 확률 계산기
+    private EnhanceResult calculateResult(int level, boolean lucky, boolean protection) {
+        double roll = random.nextDouble() * 100;
+
+        // [수정] 공통 메서드 호출로 변경
+        double successChance = getBaseSuccessChance(level);
 
         if (lucky) successChance += 10.0;
 

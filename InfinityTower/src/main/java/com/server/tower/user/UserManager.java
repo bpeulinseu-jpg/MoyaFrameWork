@@ -72,14 +72,14 @@ public class UserManager {
         CoreProvider.setBaseStat(player, "max_health", 20 + (data.statVit * 1.0));
         CoreProvider.setBaseStat(player, "hp_regen", 3 + (data.statVit * 0.3));
         // 민첩 Dex -> 이동속도 , 회피확률
-        CoreProvider.setBaseStat(player, "move_speed", data.statDex * 0.2); // % 단위로 저장 (나중에 /100)
-        CoreProvider.setBaseStat(player, "dodge", data.statDex * 0.1);
+        CoreProvider.setBaseStat(player, "move_speed", data.statDex * 0.01); // % 단위로 저장 (나중에 /100)
+        CoreProvider.setBaseStat(player, "dodge", data.statDex * 0.01);
         // 지능 int -> 마법 공격력, 쿨타임 감소
         CoreProvider.setBaseStat(player, "mag_atk", data.statInt * 1.0);
         CoreProvider.setBaseStat(player, "cdr", data.statInt * 0.25);
         // 행운 Luk -> 치명타 확률, 치명타 피해
-        CoreProvider.setBaseStat(player, "crit_chance", 1.0 + (data.statLuk * 0.1));
-        CoreProvider.setBaseStat(player, "crit_damage", 150.0 + (data.statLuk * 1.0));
+        CoreProvider.setBaseStat(player, "crit_chance", 1.0 + (data.statLuk * 0.01));
+        CoreProvider.setBaseStat(player, "crit_damage", 150.0 + (data.statLuk * 0.1));
 
         // 스탯 재계산 요청 (스탯 즉시 반영)
         CoreProvider.recalculateStats(player);

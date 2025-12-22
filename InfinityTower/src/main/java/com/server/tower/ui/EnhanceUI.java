@@ -65,8 +65,37 @@ public class EnhanceUI implements Listener {
                 btn = new ItemBuilder(Material.GOLD_BLOCK).name("§6[최고 레벨]").lore("§a최대 강화 단계입니다.").build();
             } else {
                 long cost = 500L + (level * 500L);
-                int chance = Math.max(10, 100 - (level * 10));
-                btn = new ItemBuilder(Material.ANVIL).name("§e[강화하기]").lore("§7현재: §f+" + level, "§7다음: §a+" + (level + 1), "", "§7비용: §e" + cost + " G", "§7확률: §b" + chance + "%").build();
+                // [핵심 수정] 매니저에서 확률 가져오기
+                double chance = enhanceManager.getBaseSuccessChance(level);
+
+                // [추가] 보조 재료 슬롯(예: 12번 슬롯)에 행운의 돌이 있는지 확인
+                // (슬롯 번호는 님 UI 설정에 맞춰 수정하세요. 보통 재료 슬롯이 따로 있을 겁니다)
+                ItemStack subItem = gui.getItem(15); // <-- 행운의 돌 슬롯 번호 확인 필요!
+                boolean isLucky = false;
+                if (subItem != null && CoreProvider.isCustomItem(subItem, "infinity_tower:lucky_stone")) {
+                    chance += 10.0;
+                    isLucky = true;
+                }
+
+                // 확률 100% 넘어가면 100으로 고정
+                if (chance > 100.0) chance = 100.0;
+
+                // 버튼 생성
+                ItemBuilder builder = new ItemBuilder(Material.ANVIL)
+                        .name("§e[강화하기]")
+                        .addLore("§7현재: §f+" + level)
+                        .addLore("§7다음: §a+" + (level + 1))
+                        .addLore("")
+                        .addLore("§7비용: §e" + cost + " G");
+
+                // 행운의 돌 적용 여부에 따라 색상 다르게 표시
+                if (isLucky) {
+                    builder.addLore("§7확률: §b" + String.format("%.1f", chance) + "% §a(+10%)");
+                } else {
+                    builder.addLore("§7확률: §b" + String.format("%.1f", chance) + "%");
+                }
+
+                btn = builder.build();
             }
         }
         gui.setItem(22, btn);

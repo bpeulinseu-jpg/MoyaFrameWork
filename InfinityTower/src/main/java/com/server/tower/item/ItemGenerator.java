@@ -152,31 +152,58 @@ public class ItemGenerator {
 
     // [핵심 수정] 스탯별 밸런싱 로직
     private static int calculateBonusValue(BonusStat stat, int level, ItemTier tier) {
-        double base = level * 0.5; // 기본: 레벨의 절반 (Lv.10 -> 5)
+        double base = 0;
 
         switch (stat) {
+            // 1. 최대 체력 (Level 비례: 0.5 ~ 2.0 배율)
             case MAX_HEALTH:
-                base = level * 1.0; // 체력은 높게 (Lv.10 -> 50)
+                // 예: Lv.10 -> 5 ~ 20
+                double healthMult = 0.5 + (random.nextDouble() * 1.5); // 0.5 ~ 2.0
+                base = level * healthMult;
                 break;
+
+            // 2. 체력 재생 (Level 비례: 0.01 ~ 0.1 배율)
+            case HP_REGEN:
+                // 예: Lv.100 -> 1 ~ 10 (수치가 작으므로 고레벨에서 티가 남)
+                double regenMult = 0.01 + (random.nextDouble() * 0.09); // 0.01 ~ 0.1
+                base = level * regenMult;
+                break;
+
+            // 3. 치명타 피해 (고정: 0.01 ~ 3.0 -> 1% ~ 300%)
+            case CRIT_DAMAGE:
+                // int 저장을 위해 x100 스케일링 (1 ~ 300)
+                base = 1 + (random.nextDouble() * 299);
+                break;
+
+            // 4. 물리/마법 공격력 (고정: 0.01 ~ 0.5 -> 1% ~ 50%)
             case PHYS_ATK:
             case MAG_ATK:
-                base = Math.max(1, level * 0.1); // 공격력은 1:1 (Lv.10 -> 10)
+                // int 저장을 위해 x100 스케일링 (1 ~ 50)
+                base = 1 + (random.nextDouble() * 49);
                 break;
-            case CRIT_DAMAGE:
-                base = level * 1.0; // 치명타 피해는 높게 (Lv.10 -> 20%)
-                break;
-            case HP_REGEN:
-                base = level * 1.0; // 재생은 낮게 (Lv.10 -> 2)
-                break;
+
+            // 5. 회피/치명타 확률 (고정: 0.01 ~ 0.3 -> 1% ~ 30%)
             case DODGE:
             case CRIT_CHANCE:
+                // int 저장을 위해 x100 스케일링 (1 ~ 30)
+                base = 1 + (random.nextDouble() * 29);
+                break;
+
+            // 6. 이동 속도 (고정: 0.01 ~ 0.75 -> 1% ~ 75%)
             case MOVE_SPEED:
-                base = Math.max(1, level * 0.1); // 확률류는 낮게 (Lv.10 -> 3%)
+                // int 저장을 위해 x100 스케일링 (1 ~ 75)
+                base = 1 + (random.nextDouble() * 74);
                 break;
         }
 
+        // [등급 배율 적용]
+        // 고정 상수라 하더라도 전설 등급이 일반 등급보다 좋아야 하므로 배율은 유지했습니다.
+        // 만약 등급 무시하고 완전 고정을 원하시면 multiplier를 1.0으로 바꾸세요.
         double multiplier = tier.getStatMultiplier();
-        int val = (int) (base * multiplier);
-        return Math.max(1, val); // 최소 1 보장
+
+        int val = (int) (base * 1.0); //1.0을 multiplier 로 바꾸면 등급별 차등임
+
+        // 최소값 1 보장 (0이 뜨면 옵션이 없는 것과 같으므로)
+        return Math.max(1, val);
     }
 }

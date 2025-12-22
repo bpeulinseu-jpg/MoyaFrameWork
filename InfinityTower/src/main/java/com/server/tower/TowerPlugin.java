@@ -214,6 +214,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
                     case "int" -> data.statInt = amount;
                     case "gold" -> data.gold = amount;
                     case "luk" -> data.statLuk = amount;
+                    case "etr" -> data.ether = amount;
                 }
 
                 // 3. Core에 반영 및 스코어보드 갱신
