@@ -3,6 +3,7 @@ package com.server.core.system.mob;
 import com.server.core.CorePlugin;
 import com.server.core.api.CoreAddon;
 import com.server.core.system.block.DropItem;
+import com.server.core.system.mob.skill.MobSkill;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -26,6 +27,7 @@ public class MobManager {
     private final Map<String, CustomMobData> mobMap = new HashMap<>();
     private final NamespacedKey KEY_ID;
     private final NamespacedKey KEY_DROPS;
+    private MobSkillManager skillManager;
 
     public static class CustomMobData {
         public final String namespace;
@@ -48,12 +50,20 @@ public class MobManager {
         public List<DropItem> drops = new ArrayList<>();
         public int exp = 0;
 
+        public List<MobSkill> skills = new ArrayList<>();
+
         public CustomMobData(String namespace, String id, EntityType type, String displayName) {
             this.namespace = namespace;
             this.id = id;
             this.uniqueName = namespace + ":" + id;
             this.type = type;
             this.displayName = displayName;
+        }
+
+        // [추가] 스킬 등록 메서드 (체이닝)
+        public CustomMobData addSkill(MobSkill skill) {
+            this.skills.add(skill);
+            return this;
         }
 
         public CustomMobData setStats(double health, double damage, double speed) {
@@ -87,6 +97,7 @@ public class MobManager {
         this.plugin = plugin;
         this.KEY_ID = new NamespacedKey(plugin, "mob_id");
         this.KEY_DROPS = new NamespacedKey(plugin, "mob_drops");
+        this.skillManager = new MobSkillManager(plugin);
     }
 
     public CustomMobData registerMob(CoreAddon addon, String id, EntityType type, String name) {
@@ -138,6 +149,11 @@ public class MobManager {
             equip.setBootsDropChance(0f);
             equip.setItemInMainHandDropChance(0f);
             equip.setItemInOffHandDropChance(0f);
+        }
+
+        // [추가] AI 엔진에 몬스터 등록 (스킬 사용을 위해)
+        if (!data.skills.isEmpty()) {
+            skillManager.registerActiveMob(entity, fullId);
         }
 
         return entity;

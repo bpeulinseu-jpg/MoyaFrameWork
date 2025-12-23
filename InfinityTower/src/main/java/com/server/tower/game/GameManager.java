@@ -4,9 +4,12 @@ import com.server.core.CorePlugin;
 import com.server.core.api.CoreProvider;
 import com.server.core.api.builder.MobBuilder;
 import com.server.tower.TowerPlugin;
+import com.server.tower.game.wave.FloorType;
+import com.server.tower.game.wave.WaveData;
 import com.server.tower.user.TowerUserData;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
@@ -14,7 +17,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import com.server.tower.item.ItemGenerator;
 import com.server.tower.item.ArmorGenerator;
 
 import java.util.*;
@@ -23,47 +25,50 @@ public class GameManager {
 
     private final TowerPlugin plugin;
 
-    // 플레이어별 게임 상태 관리 (UUID -> GameState)
+    // 플레이어별 게임 상태 관리
     private final Map<UUID, GameState> activeGames = new HashMap<>();
-    // 알림 타이머 관리용
-    private final Map<UUID, BukkitTask> notificationTasks = new HashMap<>();
-    // 웨이브 타이머
-    private final Map<UUID, BukkitTask> waveTimers = new HashMap<>();
-    private static final int WAVE_TIME_LIMIT = 180; // 3분 (초)
+    private final Map<UUID, BukkitTask> floorTimers = new HashMap<>(); // 타임어택용 타이머
+    public List<UUID> spawnedGimmicks = new ArrayList<>(); // [추가] 기믹 관리용
 
-    // 아레나 중앙 위치 (임시로 0, 100, 0 사용. 나중에 명령어로 설정 가능하게 변경 추천)
-    private Location arenaCenter;
+    // 챕터별 아레나 중심 좌표 (Chapter 1, 2, 3...)
+    // 실제로는 MapManager에 등록된 워프 포인트를 사용하는 것이 좋음
+    private Location defaultArena;
 
     public static class GameState {
-        int wave = 0;
-        int remainingMobs = 0;
-        List<UUID> spawnedMobs = new ArrayList<>(); // 소환된 몹 UUID 추적
+        public int chapter = 1;
+        public int floor = 0; // 0부터 시작, 1층 진입 시 1이 됨
+        public int remainingMobs = 0;
+        public List<UUID> spawnedMobs = new ArrayList<>();
+        public WaveData currentWaveData; // 현재 층의 정보
+        public List<UUID> spawnedGimmicks = new ArrayList<>();
     }
 
     public GameManager(TowerPlugin plugin) {
         this.plugin = plugin;
         loadArenaConfig();
     }
-    // 아레나 위치 콘피그
-    public void setArenaCenter(Location loc) {
-        this.arenaCenter = loc;
 
+    public void setArenaCenter(Location loc) {
+        this.defaultArena = loc;
         plugin.getConfig().set("arena.world", loc.getWorld().getName());
         plugin.getConfig().set("arena.x", loc.getX());
         plugin.getConfig().set("arena.y", loc.getY());
         plugin.getConfig().set("arena.z", loc.getZ());
         plugin.saveConfig();
+
+        // MapManager에도 등록 (챕터 1)
+        CoreProvider.registerWarp("chapter_1_start", loc);
     }
 
-    // 아레나 위치 로드
     private void loadArenaConfig() {
         if (plugin.getConfig().contains("arena.world")) {
             String worldName = plugin.getConfig().getString("arena.world");
             double x = plugin.getConfig().getDouble("arena.x");
             double y = plugin.getConfig().getDouble("arena.y");
             double z = plugin.getConfig().getDouble("arena.z");
+            this.defaultArena = new Location(Bukkit.getWorld(worldName), x, y, z);
 
-            this.arenaCenter = new Location(org.bukkit.Bukkit.getWorld(worldName), x, y, z);
+            CoreProvider.registerWarp("chapter_1_start", this.defaultArena);
         }
     }
 
@@ -71,159 +76,169 @@ public class GameManager {
     public void startGame(Player player) {
         if (activeGames.containsKey(player.getUniqueId())) return;
 
-        // 혹시 모르니 데이터 정리
+        // 초기화
         activeGames.remove(player.getUniqueId());
-        if (waveTimers.containsKey(player.getUniqueId())) {
-            waveTimers.get(player.getUniqueId()).cancel();
-            waveTimers.remove(player.getUniqueId());
+        if (floorTimers.containsKey(player.getUniqueId())) {
+            floorTimers.get(player.getUniqueId()).cancel();
+            floorTimers.remove(player.getUniqueId());
         }
 
-        // 아레나 위치 설정 안됐으면 플레이어 위치를 기준함
-        if (arenaCenter == null) arenaCenter = player.getLocation();
+        if (defaultArena == null) defaultArena = player.getLocation();
 
-        // Core 세션 시작 (레벨/스탯 초기화)
+        // 세션 시작
         CoreProvider.startSession(player);
-
-        // 게임 상태 생성
         activeGames.put(player.getUniqueId(), new GameState());
 
-        //아레나로 tp
-        player.teleport(arenaCenter.clone().add(0, 1, 0));
+        // 챕터 1 맵으로 이동
+        // (나중에 챕터별 맵이 생기면 MapManager.teleport 사용)
+        player.teleport(defaultArena.clone().add(0, 1, 0));
 
-        player.sendMessage("§a[Tower] 던전에 입장했습니다! 잠시 후 웨이브가 시작됩니다.");
+        player.sendMessage("§a[Tower] 탑에 입장했습니다. 1층부터 도전을 시작합니다!");
+        player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1f, 1f);
 
-        // 3초 후 첫 웨이브 시작
+        // 3초 후 1층 시작
         new BukkitRunnable() {
             @Override
             public void run() {
-                startNextWave(player);
+                startNextFloor(player);
             }
         }.runTaskLater(plugin, 60L);
     }
 
-    // 2. 웨이브 시작
-    public void startNextWave(Player player) {
+    // 2. 다음 층 진행 (핵심 로직)
+    public void startNextFloor(Player player) {
         GameState state = activeGames.get(player.getUniqueId());
         if (state == null) return;
 
-        // 기존 타이머 취소
-        if (waveTimers.containsKey(player.getUniqueId())) {
-            waveTimers.get(player.getUniqueId()).cancel();
+        // 기존 타이머/몹 정리
+        cleanupFloor(player);
+
+        state.floor++;
+
+        // 챕터 변경 체크 (10층 클리어 후 11층 진입 시)
+        if (state.floor > 10) {
+            state.chapter++;
+            state.floor = 1;
+            // TODO: 맵 이동 및 챕터 변경 연출 (나중에 구현)
+            player.sendMessage("§b[System] 챕터 " + state.chapter + " 진입!");
         }
 
-        state.wave++;
+        // WaveManager에서 해당 층 데이터 가져오기
+        WaveData data = plugin.getWaveManager().getWaveData(state.floor);
+        state.currentWaveData = data;
 
-        // 기존에 남은 몬스터가 있다면 합산 (쌓임 방지 로직 필요)
-        if (state.remainingMobs > 200) { // 50마리 이상 쌓이면 패배 처리
-            player.sendMessage("§c몬스터가 너무 많이 쌓여 패배했습니다!");
-            endGame(player);
-            return;
+        // 층 타입에 따른 분기 처리
+        if (data.getType() == FloorType.REST) {
+            startRestFloor(player, state);
+        } else {
+            startCombatFloor(player, state, data);
+        }
+    }
+
+    // 휴게실 (전투 없음)
+    private void startRestFloor(Player player, GameState state) {
+        player.sendTitle("§a[ 휴게실 ]", "§7정비 후 다음 층으로 이동하세요.", 10, 60, 20);
+        player.playSound(player.getLocation(), Sound.MUSIC_DISC_CAT, 1f, 1f);
+
+        // 보스바 갱신 (휴식 중)
+        CoreProvider.showBossBar(player, "wave_info", Component.text("§a휴식 중... 정비하세요"), 1.0f, BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
+
+        // [수정] RestAreaManager 호출 (NPC 소환 및 세팅)
+        // state를 넘겨줘서 NPC UUID를 관리하게 함
+        plugin.getRestAreaManager().setupRestArea(player, state);
+
+        // 안내 메시지
+        player.sendMessage("§e[Tip] 문지기에게 말을 걸어 다음 층으로 이동하거나,");
+        player.sendMessage("§e      상인에게서 필요한 물품을 구매하세요.");
+    }
+
+    // 전투 스테이지 (일반, 타임어택, 보스)
+    private void startCombatFloor(Player player, GameState state, WaveData data) {
+        // 1. 몬스터 소환
+        int totalMobs = 0;
+        Location center = player.getLocation(); // 아레나 중앙 기준
+
+        for (Map.Entry<String, Integer> entry : data.getMonsters().entrySet()) {
+            String mobId = entry.getKey();
+            int count = entry.getValue();
+
+            // 챕터가 오를수록 몬스터 스펙 보정 (레벨 스케일링)
+            int mobLevel = (state.chapter - 1) * 10 + state.floor;
+
+            for (int i = 0; i < count; i++) {
+                Location spawnLoc = getRandomLocation(center, 10);
+                LivingEntity mob = MobBuilder.from(mobId)
+                        .level(mobLevel)
+                        .spawn(spawnLoc);
+                state.spawnedMobs.add(mob.getUniqueId());
+            }
+            totalMobs += count;
+        }
+        state.remainingMobs = totalMobs;
+
+        // 2. 기믹 소환 (있다면)
+        if (data.getGimmickId() != null) {
+            spawnGimmick(data.getGimmickId(), getRandomLocation(center, 5));
         }
 
-        // 타이틀 알림
+        // 3. UI 및 알림
+        String title = "§e" + state.floor + "층 시작!";
+        String subTitle = "§7몬스터를 모두 처치하세요.";
+        BossBar.Color barColor = BossBar.Color.RED;
+
+        if (data.getType() == FloorType.TIME_ATTACK) {
+            title = "§c§l타임 어택!";
+            subTitle = "§7" + data.getTimeLimit() + "초 안에 돌파하세요!";
+            barColor = BossBar.Color.PURPLE;
+
+            // 제한시간 타이머 가동
+            startTimeLimit(player, state, data.getTimeLimit());
+        } else if (data.getType() == FloorType.BOSS) {
+            title = "§4§lBOSS BATTLE";
+            subTitle = "§c강력한 적이 나타났습니다!";
+            barColor = BossBar.Color.RED;
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1f, 0.5f);
+        }
+
         CoreProvider.sendTitle(player,
-                Component.text("§eWave " + state.wave),
-                Component.text("§7제한시간 3분!"),
-                10, 40, 10, 10);
-        player.playSound(player.getLocation(), Sound.EVENT_RAID_HORN, 1f, 1f);
+                Component.text(title),
+                Component.text(subTitle),
+                10, 40, 10, 10); // [수정] 마지막 인자(priority) 추가
+        updateBossBar(player, state, totalMobs, barColor);
+    }
 
-        // 전체 몬스터 숫자 갱신
-        updateBossBar(player, state, state.remainingMobs);
+    // 타임어택 타이머
+    private void startTimeLimit(Player player, GameState state, int seconds) { // state 인자 추가
+        final int totalTime = seconds;
 
-        // 3분 타이머 시작
-        BukkitTask timer = new BukkitRunnable() {
+        BukkitTask task = new BukkitRunnable() {
+            int timeLeft = totalTime;
+
             @Override
             public void run() {
-                player.sendMessage("§c[Time Over] 시간이 초과되어 다음 웨이브가 강제 시작됩니다!");
-                startNextWave(player);
+                if (timeLeft <= 0) {
+                    player.sendMessage("§c[실패] 제한 시간이 초과되었습니다!");
+                    endGame(player);
+                    this.cancel();
+                    return;
+                }
+
+                // 보스바 갱신
+                float progress = (float) timeLeft / totalTime;
+                CoreProvider.showBossBar(
+                        player,
+                        "wave_info", // 기존 웨이브 정보 덮어쓰기
+                        Component.text("§c§l타임 어택! §f남은 시간: " + timeLeft + "초"),
+                        progress,
+                        BossBar.Color.PURPLE,
+                        BossBar.Overlay.NOTCHED_10
+                );
+
+                timeLeft--;
             }
-        }.runTaskLater(plugin, WAVE_TIME_LIMIT * 20L);
+        }.runTaskTimer(plugin, 0L, 20L); // 1초마다 실행
 
-        waveTimers.put(player.getUniqueId(), timer);
-
-        // 5웨이브 마다 보스출현
-        boolean isBossWave = (state.wave % 5 == 0);
-
-        if (isBossWave) {
-            // --- 보스 웨이브 ---
-            int mobCount = 1;
-            state.remainingMobs = mobCount;
-
-            CoreProvider.sendTitle(player,
-                    Component.text("§4§lWARNING"),
-                    Component.text("§c보스가 등장했습니다!"),
-                    10, 60, 20, 100);
-
-            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1f, 0.5f);
-
-            // 보스 소환
-            spawnBoss(player, state, mobCount);
-
-        } else {
-            // 일반 웨이브
-            // 난이도 설정 (웨이브마다 몬스터 수 증가)
-            int mobCount = 3 + (state.wave * 2);
-            state.remainingMobs = mobCount;
-
-            // 타이틀 알림
-            CoreProvider.sendTitle(player,
-                    Component.text("§eWave " + state.wave),
-                    Component.text("§7몬스터 " + mobCount + "마리가 등장합니다!"),
-                    10, 40, 10, 10);
-
-            player.playSound(player.getLocation(), Sound.EVENT_RAID_HORN, 1f, 1f);
-
-            // 몬스터 소환 (약간의 텀을 두고 소환)
-            spawnMobs(player, state, mobCount);
-        }
-        // 보스바 갱신
-        updateBossBar(player, state, state.remainingMobs);
-    }
-
-    // 보스 소환 메소드
-    private void spawnBoss(Player player, GameState state, int count) {
-        Location center = (arenaCenter != null) ? arenaCenter : player.getLocation();
-
-        for (int i = 0; i < count; i++) {
-
-            // 반경 5 ~ 15칸 사이 랜덤
-            double angle = Math.random() * Math.PI * 2;
-            double distance = 5 + (Math.random() * 10);
-            double x = center.getX() + (Math.cos(angle) * distance);
-            double z = center.getZ() + (Math.sin(angle) * distance);
-            double y = center.getWorld().getHighestBlockYAt((int) x, (int) z) + 1;
-
-            Location spawnLoc = new Location(center.getWorld(), x, y, z);
-            // MobBuilder를 사용해 강화된 보스 소환
-            LivingEntity boss = MobBuilder.from("infinity_tower:orc_boss")
-                    .level(state.wave) // 웨이브만큼 레벨 스케일링 (체력/공격력 증가)
-                    .spawn(spawnLoc);
-
-            state.spawnedMobs.add(boss.getUniqueId());
-
-        }
-    }
-
-    private void spawnMobs(Player player, GameState state, int count) {
-        Location center = (arenaCenter != null) ? arenaCenter : player.getLocation();
-
-        for (int i = 0; i < count; i++) {
-            // 반경 5 ~ 15칸 사이 랜덤
-            double angle = Math.random() * Math.PI * 2;
-            double distance = 5 + (Math.random() * 10);
-            double x = center.getX() + (Math.cos(angle) * distance);
-            double z = center.getZ() + (Math.sin(angle) * distance);
-            double y = center.getWorld().getHighestBlockYAt((int)x, (int)z) + 1;
-
-            Location spawnLoc = new Location(center.getWorld(), x, y, z);
-
-            // [신규] 웨이브에 따른 능력치 증가 (MobBuilder.level 활용)
-            LivingEntity mob = MobBuilder.from("infinity_tower:goblin")
-                    .level(state.wave) // 웨이브만큼 레벨 스케일링 (체력/공격력 증가)
-                    .spawn(spawnLoc);
-
-            state.spawnedMobs.add(mob.getUniqueId());
-        }
+        floorTimers.put(player.getUniqueId(), task);
     }
 
     // 3. 몬스터 처치 처리
@@ -231,142 +246,205 @@ public class GameManager {
         GameState state = activeGames.get(player.getUniqueId());
         if (state == null) return;
 
-        // 내 게임의 몬스터인지 확인
         if (state.spawnedMobs.contains(mob.getUniqueId())) {
             state.spawnedMobs.remove(mob.getUniqueId());
             state.remainingMobs--;
 
-            // 골드 지급 로직
-            int goldReward = 10 + (int)(Math.random() * 10) + (state.wave * 5);
-
-            TowerUserData data = plugin.getUserManager().getUser(player);
-            if (data != null) {
-                data.gold += goldReward;
-                // 실시간으로 돈이 오르는 걸 보여주려면 여기서 스코어보드 갱신
-                plugin.getUserManager().updateSidebar(player);
-            }
-
-            // 무기 드랍 로직
-            if (Math.random() < 0.025) {
-                // 아이템 레벨 = 현재 웨이브
-                // 웨이브가 높을수록 기본 깡뎀이 높은 무기가 나옴
-                ItemStack dropItem = com.server.tower.item.ItemGenerator.generateWeapon(state.wave);
-
-                mob.getWorld().dropItemNaturally(mob.getLocation(), dropItem);
-
-                player.sendMessage("§6✨ 희귀한 장비가 떨어졌습니다!");
-                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1.5f);
-            }
-            // 방어구 드랍
-            if (Math.random() < 0.025) {
-                ItemStack armor = ArmorGenerator.generateArmor(state.wave);
-                mob.getWorld().dropItemNaturally(mob.getLocation(), armor);
-                player.sendMessage("§6✨ 희귀한 장비가 떨어졌습니다!");
-                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1.2f);
-            }
+            // 보상 지급 (골드/아이템) - 기존 로직 유지
+            giveRewards(player, state, mob);
 
             // 보스바 갱신
-            updateBossBar(player, state, state.remainingMobs + 1);
+            updateBossBar(player, state, state.remainingMobs + 1, BossBar.Color.RED);
 
-            // 웨이브 클리어 체크
+            // 클리어 체크
             if (state.remainingMobs <= 0) {
-                // 타이머 취소 (클리어했으므로)
-                if (waveTimers.containsKey(player.getUniqueId())) {
-                    waveTimers.get(player.getUniqueId()).cancel();
-                }
-
-                player.sendMessage("§a웨이브 " + state.wave + " 클리어!");
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 2f);
-
-                // 퍽 선택 페이즈
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        // PerkListener에게 위임: "선택 다 끝나면 startNextWave 실행해줘"
-                        plugin.getPerkListener().startPerkPhase(player, () -> {
-                            // 퍽 선택이 다 끝나면 실행될 코드 (다음 웨이브)
-                            new BukkitRunnable() {
-                                @Override
-                                public void run() {
-                                    startNextWave(player);
-                                }
-                            }.runTaskLater(plugin, 40L); // 선택 후 2초 뒤 시작
-                        });
-                    }
-                }.runTaskLater(plugin, 60L);
+                completeFloor(player, state);
             }
         }
     }
 
-    // 4. 게임 종료 (사망 또는 나가기)
+    private void completeFloor(Player player, GameState state) {
+        // 타이머 취소
+        if (floorTimers.containsKey(player.getUniqueId())) {
+            floorTimers.get(player.getUniqueId()).cancel();
+            floorTimers.remove(player.getUniqueId());
+        }
+
+        player.sendMessage("§a" + state.floor + "층 클리어!");
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 2f);
+
+        // 퍽(Perk) 선택 -> 다음 층
+        // (휴게실이나 보스방 직전에는 퍽을 안 줄 수도 있음 - 기획에 따라 조정)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                plugin.getPerkListener().startPerkPhase(player, () -> {
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            startNextFloor(player);
+                        }
+                    }.runTaskLater(plugin, 40L);
+                });
+            }
+        }.runTaskLater(plugin, 60L);
+    }
+
+    // 4. 게임 종료
     public void endGame(Player player) {
         if (activeGames.containsKey(player.getUniqueId())) {
-            GameState state = activeGames.get(player.getUniqueId());
-
-            // 1. 몬스터 제거
-            for (UUID mobId : state.spawnedMobs) {
-                var entity = org.bukkit.Bukkit.getEntity(mobId);
-                if (entity != null) entity.remove();
-            }
-
-            // 2. 데이터 정리
+            cleanupFloor(player);
             activeGames.remove(player.getUniqueId());
-            if (waveTimers.containsKey(player.getUniqueId())) {
-                waveTimers.get(player.getUniqueId()).cancel();
-                waveTimers.remove(player.getUniqueId());
-            }
 
-            // 3. Core 세션 종료 & UI 제거
             CoreProvider.endSession(player);
             CoreProvider.removeBossBar(player, "wave_info");
             CoreProvider.clearHud(player);
 
-            // 4. 스코어보드 갱신
-            if (player.isOnline()) plugin.getUserManager().updateSidebar(player);
+            if (player.isOnline()) {
+                plugin.getUserManager().updateSidebar(player);
+                // 로비 귀환
+                org.bukkit.World mainWorld = Bukkit.getWorlds().get(0);
+                player.teleport(mainWorld.getSpawnLocation());
+                player.sendMessage("§e[Tower] 로비로 귀환했습니다.");
 
-            // [신규] 5. 로비(월드 스폰)로 텔레포트
-            // 메인 월드("world")의 스폰 포인트로 이동
-            org.bukkit.World mainWorld = org.bukkit.Bukkit.getWorlds().get(0);
-            player.teleport(mainWorld.getSpawnLocation());
-
-            player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
-            player.sendMessage("§e[Tower] 로비로 귀환했습니다.");
-
-            // [핵심 추가] 체력 구슬 HUD 다시 켜기 (clearHud 때문에 지워졌으므로)
-            if (plugin.getTowerHud() != null) {
-                plugin.getTowerHud().registerTo(player);
+                // HUD 복구
+                if (plugin.getTowerHud() != null) plugin.getTowerHud().registerTo(player);
             }
         }
     }
-    // 골드 알림 메소드
-    private void showGoldNotification(Player player, int amount) {
-        // HUD 관련 타이머/레이어 로직 제거 (채팅은 사라지지 않으므로 불필요)
 
-        // 단순히 채팅 메시지 전송
-        player.sendMessage(net.kyori.adventure.text.Component.text("§e+" + amount + " G"));
+    // 유틸리티: 층 정리 (몹 제거, 타이머 취소)
+    private void cleanupFloor(Player player) {
+        GameState state = activeGames.get(player.getUniqueId());
+        if (state != null) {
+            // 몬스터 삭제
+            for (UUID mobId : state.spawnedMobs) {
+                var entity = Bukkit.getEntity(mobId);
+                if (entity != null) entity.remove();
+            }
+            state.spawnedMobs.clear();
 
-        // (선택사항) 알림 효과음이 필요하다면 추가
-        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.0f);
+            // [추가] 기믹 삭제
+            for (UUID gimmickId : state.spawnedGimmicks) {
+                // Core의 GimmickManager를 통해 삭제
+                com.server.core.CorePlugin.getGimmickManager().removeGimmick(gimmickId);
+            }
+            state.spawnedGimmicks.clear();
+        }
+        if (floorTimers.containsKey(player.getUniqueId())) {
+            floorTimers.get(player.getUniqueId()).cancel();
+            floorTimers.remove(player.getUniqueId());
+        }
     }
 
+    private Location getRandomLocation(Location center, double radius) {
+        double angle = Math.random() * Math.PI * 2;
+        double dist = Math.random() * radius;
+        double x = center.getX() + (Math.cos(angle) * dist);
+        double z = center.getZ() + (Math.sin(angle) * dist);
+        double y = center.getWorld().getHighestBlockYAt((int)x, (int)z) + 1;
+        return new Location(center.getWorld(), x, y, z);
+    }
 
-    private void updateBossBar(Player player, GameState state, int maxMobs) {
-        // maxMobs가 0이면 1로 방어
+    private void updateBossBar(Player player, GameState state, int maxMobs, BossBar.Color color) {
         if (maxMobs <= 0) maxMobs = 1;
         float progress = (float) state.remainingMobs / maxMobs;
-        if (progress > 1.0f) progress = 1.0f; // 몹이 쌓이면 1.0 넘을 수 있음
+        if (progress > 1.0f) progress = 1.0f;
 
         CoreProvider.showBossBar(
                 player,
                 "wave_info",
-                Component.text("§cWave " + state.wave + " §7- 남은 적: §f" + state.remainingMobs),
+                Component.text("§c" + state.floor + "F §7- 남은 적: §f" + state.remainingMobs),
                 progress,
-                BossBar.Color.RED,
+                color,
                 BossBar.Overlay.NOTCHED_10
         );
     }
 
+    // 기존 보상 로직 분리
+    private void giveRewards(Player player, GameState state, LivingEntity mob) {
+        int goldReward = 10 + (int)(Math.random() * 10) + (state.floor * 2);
+        TowerUserData data = plugin.getUserManager().getUser(player);
+        if (data != null) {
+            data.gold += goldReward;
+            plugin.getUserManager().updateSidebar(player);
+            showGoldNotification(player, goldReward);
+        }
+
+        // 아이템 드랍 (확률)
+        if (Math.random() < 0.02) {
+            ItemStack dropItem = com.server.tower.item.ItemGenerator.generateWeapon(state.floor * state.chapter);
+            mob.getWorld().dropItemNaturally(mob.getLocation(), dropItem);
+            player.sendMessage("§6✨ 장비 획득!");
+        }
+    }
+
+    private void showGoldNotification(Player player, int amount) {
+        player.sendMessage(Component.text("§e+" + amount + " G"));
+    }
+
+    // 기믹 소환 (임시)
+    private void spawnGimmick(String gimmickId, Location center) {
+        if (gimmickId == null) return;
+
+        /// 기믹은 맵 중앙 근처 랜덤 위치에 소환
+        Location loc = getRandomLocation(center, 8);
+
+        // 바닥에 붙이기 (가장 높은 블록 위)
+        loc.setY(loc.getWorld().getHighestBlockYAt(loc) + 1);
+
+        // [수정] TowerGimmickManager에게 위임
+        plugin.getGimmickManager().spawnGimmick(gimmickId, loc);
+
+        switch (gimmickId) {
+            case "BLOOD_ALTAR": // [1~3F] 피의 제단
+                CoreProvider.spawnInteractableGimmick(loc, org.bukkit.Material.RED_NETHER_BRICK_SLAB, player -> {
+                    // 우클릭 시: 체력 20% 소모 -> 공격력 50% 증가 (30초)
+                    double cost = player.getMaxHealth() * 0.2;
+                    if (player.getHealth() > cost) {
+                        player.damage(cost);
+                        player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.STRENGTH, 600, 1)); // Strength II
+                        player.sendMessage("§c[피의 제단] §7체력을 바쳐 §c강력한 힘§7을 얻었습니다!");
+                        player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 1f, 0.5f);
+
+                        // 제단 사용 후 효과 (파티클 등) - 일회용이라면 여기서 제거 로직 필요
+                    } else {
+                        player.sendMessage("§c[!] 제물을 바치기엔 체력이 부족합니다.");
+                    }
+                });
+                // 안내 메시지
+                Bukkit.broadcast(Component.text("§c[!] 피의 제단이 나타났습니다. 우클릭하여 힘을 얻으세요."));
+                break;
+
+            case "CURSE_TOTEM": // [7~9F] 저주받은 토템
+                // 토템이 살아있는 동안 몬스터 무적 (주기적 체크 필요하거나, 이벤트 리스너에서 처리)
+                // 여기서는 간단하게: 토템 주변 몬스터에게 지속적인 회복/저항 버프 부여
+
+                // 토템 생성 (체력 50)
+                CoreProvider.spawnDestructibleGimmick(loc, org.bukkit.Material.CRYING_OBSIDIAN, 50, () -> {
+                    // 파괴 시
+                    Bukkit.broadcast(Component.text("§a[!] 저주받은 토템이 파괴되었습니다! 몬스터의 보호막이 사라집니다."));
+                    // (심화 구현 시: GameManager에 토템 파괴 상태 저장 -> MobAbilityListener에서 무적 해제)
+                });
+
+                Bukkit.broadcast(Component.text("§5[!] 저주받은 토템이 몬스터들을 보호하고 있습니다! 먼저 파괴하세요!"));
+                break;
+        }
+    }
+
     public boolean isIngame(Player player) {
         return activeGames.containsKey(player.getUniqueId());
+    }
+
+    // 수동 다음 층 이동 (휴게실용)
+    public void forceNextFloor(Player player) {
+        if (isIngame(player)) {
+            startNextFloor(player);
+        }
+    }
+
+    // [추가] 외부에서(디버그 명령어 등) 게임 상태를 가져오기 위한 Getter
+    public GameState getGameState(Player player) {
+        return activeGames.get(player.getUniqueId());
     }
 }

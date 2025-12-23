@@ -224,6 +224,11 @@ public class CoreProvider {
         CorePlugin.getMobManager().spawnMob(loc, fullId);
     }
 
+    // [추가] 엔티티로부터 커스텀 몹 ID를 가져오는 메서드
+    public static String getCustomMobId(org.bukkit.entity.Entity entity) {
+        return CorePlugin.getMobManager().getCustomMobId(entity);
+    }
+
     // --- 13. 쿨타임 (V1.3) ---
     public static void setCooldown(Player player, String key, long ticks) {
         CorePlugin.getCooldownManager().setCooldown(player, key, ticks);
@@ -273,5 +278,31 @@ public class CoreProvider {
     // 방어 무시 옵션 포함
     public static void dealDamage(LivingEntity attacker, LivingEntity victim, double damage, boolean isCrit, boolean ignoreArmor) {
         CorePlugin.getDamageManager().dealDamage(attacker, victim, damage, isCrit, ignoreArmor);
+    }
+
+    // --- 18. 맵 & 월드 관리 (V1.4) ---
+
+    public static void registerWarp(String id, org.bukkit.Location location) {
+        CorePlugin.getMapManager().registerWarp(id, location);
+    }
+
+    public static void teleport(Player player, String warpId) {
+        CorePlugin.getMapManager().teleport(player, warpId);
+    }
+
+    public static void pasteStructure(org.bukkit.Location location, String fileName) {
+        CorePlugin.getMapManager().pasteStructure(location, fileName, false);
+    }
+
+    // --- 19. 기믹 시스템 (V1.4) ---
+
+    // 파괴 가능한 토템 생성
+    public static java.util.UUID spawnDestructibleGimmick(org.bukkit.Location loc, Material material, double hp, Runnable onDestroy) {
+        return CorePlugin.getGimmickManager().createDestructible(loc, material, hp, onDestroy);
+    }
+
+    // 상호작용 가능한 제단 생성
+    public static java.util.UUID spawnInteractableGimmick(org.bukkit.Location loc, Material material, Consumer<Player> onInteract) {
+        return CorePlugin.getGimmickManager().createInteractable(loc, material, onInteract);
     }
 }

@@ -3,6 +3,7 @@ package com.server.tower;
 import com.server.core.api.CoreAddon;
 import com.server.core.api.CoreProvider;
 import com.server.tower.game.*;
+import com.server.tower.game.wave.WaveManager;
 import com.server.tower.item.EnhanceManager;
 import com.server.tower.item.ItemGenerator;
 import com.server.tower.system.transcendence.TranscendenceGui;
@@ -46,6 +47,9 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     private TranscendenceManager transcendenceManager;
     private TowerHud towerHud;
     private TranscendenceGui transcendenceUI;
+    private WaveManager waveManager;
+    private RestAreaManager restAreaManager;
+    private TowerGimmickManager gimmickManager;
 
 
     @Override
@@ -83,6 +87,9 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         this.perkListener = new PerkListener(this);
         this.repairUI = new RepairUI(this);
         this.transcendenceUI = new TranscendenceGui(this);
+        this.waveManager = new WaveManager();
+        this.restAreaManager = new RestAreaManager(this);
+        this.gimmickManager = new TowerGimmickManager(this);
 
         this.transcendenceManager = new TranscendenceManager(this);
         // [수정] 매니저를 먼저 생성
@@ -106,6 +113,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         getServer().getPluginManager().registerEvents(new DurabilityListener(), this);
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new ArmorListener(this), this);
+        getServer().getPluginManager().registerEvents(new com.server.tower.mob.MobAbilityListener(), this);
 
         //명령어 등록
         if (getCommand("tower") != null) getCommand("tower").setExecutor(this);
@@ -209,6 +217,37 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
             return true;
         }
 
+        // [테스트용] 특정 층으로 점프 (/tower jump 6)
+        if (args[0].equalsIgnoreCase("jump") && args.length > 1) {
+            int floor = Integer.parseInt(args[1]);
+            // 강제로 게임 상태 수정
+            var state = gameManager.getGameState(player); // GameManager에 getter 필요 (아래 참고)
+            if (state != null) {
+                state.floor = floor - 1; // startNextFloor에서 ++ 되므로 1 뺌
+                gameManager.startNextFloor(player);
+                player.sendMessage("§e[Debug] " + floor + "층으로 강제 이동했습니다.");
+            } else {
+                player.sendMessage("§c먼저 던전에 입장하세요 (/tower enter)");
+            }
+            return true;
+        }
+
+        // [테스트용] 몬스터 소환 (/tower spawn infinity_tower:skeleton_sniper)
+        if (args[0].equalsIgnoreCase("spawn") && args.length > 1) {
+            String mobId = args[1];
+            com.server.core.api.builder.MobBuilder.from(mobId).spawn(player.getLocation());
+            player.sendMessage("§e[Debug] 몬스터 소환: " + mobId);
+            return true;
+        }
+
+        // [테스트용] 기믹 소환 (/tower gimmick CURSE_TOTEM)
+        if (args[0].equalsIgnoreCase("gimmick") && args.length > 1) {
+            String gimmickId = args[1];
+            getGimmickManager().spawnGimmick(gimmickId, player.getLocation());
+            player.sendMessage("§e[Debug] 기믹 소환: " + gimmickId);
+            return true;
+        }
+
         // stat 수정
         if (args.length > 0) {
             // /tower stat <str|vit> <amount>
@@ -282,4 +321,8 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     }
     public TowerHud getTowerHud() {return towerHud;}
     public TranscendenceGui getTranscendenceUI() {return transcendenceUI;}
+    public WaveManager getWaveManager() { return waveManager; }
+    public RestAreaManager getRestAreaManager() { return restAreaManager; }
+    public TowerGimmickManager getGimmickManager() { return gimmickManager; }
+
 }

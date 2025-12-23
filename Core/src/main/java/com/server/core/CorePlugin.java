@@ -5,6 +5,7 @@ import com.server.core.listener.BlockListener;
 import com.server.core.system.addon.AddonManager;
 import com.server.core.system.block.BlockManager;
 import com.server.core.system.display.ActionBarManager;
+import com.server.core.system.gimmick.GimmickManager;
 import com.server.core.system.glyph.GlyphManager;
 import com.server.core.system.gui.GuiManager;
 import com.server.core.system.data.DataManager;
@@ -13,6 +14,7 @@ import com.server.core.system.resource.ResourcePackManager;
 import com.server.core.system.resource.WebServerManager;
 import com.server.core.system.browser.GlyphBrowser;
 import com.server.core.system.browser.SoundBrowser;
+import com.server.core.system.world.MapManager;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -67,6 +69,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
     private CooldownManager cooldownManager;
     private ProjectileManager projectileManager;
     private DamageManager damageManager;
+    private MapManager mapManager;
+    private GimmickManager gimmickManager;
 
     @Override
     public void onEnable() {
@@ -101,6 +105,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
         this.cooldownManager = new CooldownManager(this);
         this.projectileManager = new ProjectileManager(this);
         this.damageManager = new DamageManager(this);
+        this.mapManager = new MapManager(this);
+        this.gimmickManager = new GimmickManager(this);
 
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("CoreFramework Enabled!");
@@ -115,6 +121,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        // 서버 꺼질 때 기믹들 남지 않게 정리
+        if (gimmickManager != null) gimmickManager.removeAll();
 
         if (databaseManager != null)
             databaseManager.close();
@@ -312,6 +320,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
     public static CooldownManager getCooldownManager() { return instance.cooldownManager; }
     public static ProjectileManager getProjectileManager() { return instance.projectileManager; }
     public static DamageManager getDamageManager() { return instance.damageManager; }
+    public static MapManager getMapManager() { return instance.mapManager; }
+    public static GimmickManager getGimmickManager() { return instance.gimmickManager; }
 
     public static void registerAddon(CoreAddon addon) {
         if (instance != null) instance.addonManager.register(addon);

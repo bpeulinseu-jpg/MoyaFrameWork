@@ -3,8 +3,8 @@ package com.server.tower.item.enums;
 public enum ItemTier {
     COMMON("§7[일반]", 1.0, 0, 1, false, 5),
     RARE("§9[희귀]", 1.2, 1, 2, false, 7),
-    EPIC("§5[영웅]", 1.5, 2, 3, true, 10),
-    LEGENDARY("§6§l[전설]", 2.0, 3, 3, true, 15),
+    EPIC("§5[영웅]", 1.5, 1, 3, true, 10),
+    LEGENDARY("§6§l[전설]", 2.0, 1, 3, true, 15),
     // 고유 등급 (드랍으론 안나옴)
     UNIQUE("§d§l[고유]", 3.0, 4, 4, true, 15);
 

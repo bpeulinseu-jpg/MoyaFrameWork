@@ -29,7 +29,7 @@ public class EnhanceUI implements Listener {
     }
 
     public void open(Player player) {
-        Inventory gui = CoreProvider.openGui(player, "infinity_tower:menu_bg", GUI_TITLE, -16, 4, false);
+        Inventory gui = CoreProvider.openGui(player, "infinity_tower:menu_bg", GUI_TITLE, -16, 3, false);
 
         ItemStack filler = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).name(" ").build();
         for (int i = 0; i < gui.getSize(); i++) {
