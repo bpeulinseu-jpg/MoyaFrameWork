@@ -265,9 +265,6 @@ public class GameManager {
                 player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1.2f);
             }
 
-            // 액션바 알람을 레이어로 전환
-            showGoldNotification(player, goldReward);
-
             // 보스바 갱신
             updateBossBar(player, state, state.remainingMobs + 1);
 
@@ -334,30 +331,22 @@ public class GameManager {
 
             player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
             player.sendMessage("§e[Tower] 로비로 귀환했습니다.");
+
+            // [핵심 추가] 체력 구슬 HUD 다시 켜기 (clearHud 때문에 지워졌으므로)
+            if (plugin.getTowerHud() != null) {
+                plugin.getTowerHud().registerTo(player);
+            }
         }
     }
     // 골드 알림 메소드
     private void showGoldNotification(Player player, int amount) {
-        // 1. 기존 타이머가 있다면 취소 (연속 킬 시 시간 연장 효과)
-        if (notificationTasks.containsKey(player.getUniqueId())) {
-            notificationTasks.get(player.getUniqueId()).cancel();
-        }
+        // HUD 관련 타이머/레이어 로직 제거 (채팅은 사라지지 않으므로 불필요)
 
-        // 2. HUD 레이어 등록 (우선순위 100: 가장 위에 덮어씀)
-        CorePlugin.getHudManager().registerLayer(player, "gold_noti", 100, (p) -> {
-            return Component.text("§e+" + amount + " G  ");
-        });
+        // 단순히 채팅 메시지 전송
+        player.sendMessage(net.kyori.adventure.text.Component.text("§e+" + amount + " G"));
 
-        // 3. 2초 뒤에 레이어 삭제하는 타이머 예약
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                CorePlugin.getHudManager().removeLayer(player, "gold_noti");
-                notificationTasks.remove(player.getUniqueId());
-            }
-        }.runTaskLater(plugin, 40L); // 2초 (40틱)
-
-        notificationTasks.put(player.getUniqueId(), task);
+        // (선택사항) 알림 효과음이 필요하다면 추가
+        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.0f);
     }
 
 

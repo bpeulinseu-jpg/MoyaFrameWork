@@ -58,5 +58,10 @@ public class LobbyListener implements Listener {
             plugin.getRepairUI().open(player);
             event.setCancelled(true);
         }
+        //  대장장이 작업대 -> 초월
+        else if (block.getType() == Material.SMITHING_TABLE) {
+            plugin.getTranscendenceUI().open(player);
+            event.setCancelled(true);
+        }
     }
 }

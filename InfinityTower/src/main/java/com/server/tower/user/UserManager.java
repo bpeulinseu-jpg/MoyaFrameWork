@@ -70,7 +70,7 @@ public class UserManager {
         CoreProvider.setBaseStat(player, "def", data.statStr * 0.1);
         // 활력 vit -> 최대 채력 , 재생량
         CoreProvider.setBaseStat(player, "max_health", 20 + (data.statVit * 1.0));
-        CoreProvider.setBaseStat(player, "hp_regen", 3 + (data.statVit * 0.3));
+        CoreProvider.setBaseStat(player, "hp_regen", 3 + (data.statVit * 0.05));
         // 민첩 Dex -> 이동속도 , 회피확률
         CoreProvider.setBaseStat(player, "move_speed", data.statDex * 0.01); // % 단위로 저장 (나중에 /100)
         CoreProvider.setBaseStat(player, "dodge", data.statDex * 0.01);

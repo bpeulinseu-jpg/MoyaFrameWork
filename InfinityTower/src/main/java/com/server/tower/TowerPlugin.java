@@ -7,7 +7,7 @@ import com.server.tower.item.EnhanceManager;
 import com.server.tower.item.ItemGenerator;
 import com.server.tower.system.transcendence.TranscendenceGui;
 import com.server.tower.system.transcendence.TranscendenceManager;
-import com.server.tower.ui.RepairUI;
+import com.server.tower.ui.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.Command;
@@ -24,10 +24,9 @@ import com.server.tower.item.ItemRegistry;
 import com.server.tower.mob.MobRegistry;
 import com.server.tower.game.perk.PerkListener;
 import com.server.tower.game.perk.PerkRegistry;
-import com.server.tower.ui.SocketingUI;
-import com.server.tower.ui.EnhanceUI;
 import com.server.tower.game.DungeonListener;
 import com.server.tower.game.RegenListener;
+import com.server.tower.system.transcendence.TranscendenceGui;
 
 public class TowerPlugin extends JavaPlugin implements CoreAddon {
 
@@ -45,11 +44,27 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     private PerkListener perkListener;
     private EnhanceManager enhanceManager;
     private TranscendenceManager transcendenceManager;
+    private TowerHud towerHud;
+    private TranscendenceGui transcendenceUI;
 
 
     @Override
     public void onEnable() {
         instance = this;
+        //1. hud 리소스 등록
+        HudRegistry hudRegistry = new HudRegistry(this);
+        hudRegistry.registerAll();
+
+        // 2. HUD 가동 (onCoreReady 혹은 onEnable 마지막에)
+        // null을 넣으면 모든 플레이어에게 적용되는 팩토리 등록
+        this.towerHud = new TowerHud(this);
+
+        // [추가] 바닐라 하트 숨기기 실행
+        new VanillaHudHider(this).hideHearts();
+
+        getLogger().info("🏰 Moya's Infinity Tower가 준비되었습니다.");
+
+
 
         // 3초마다 재생 태스크 실행
         new RegenTask().runTaskTimer(this, 60L, 60L);
@@ -67,6 +82,8 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         this.socketingUI = new SocketingUI(this);
         this.perkListener = new PerkListener(this);
         this.repairUI = new RepairUI(this);
+        this.transcendenceUI = new TranscendenceGui(this);
+
         this.transcendenceManager = new TranscendenceManager(this);
         // [수정] 매니저를 먼저 생성
         this.enhanceManager = new EnhanceManager();
@@ -263,4 +280,6 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     public TranscendenceManager getTranscendenceManager() {
         return transcendenceManager;
     }
+    public TowerHud getTowerHud() {return towerHud;}
+    public TranscendenceGui getTranscendenceUI() {return transcendenceUI;}
 }

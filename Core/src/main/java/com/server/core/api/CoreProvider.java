@@ -51,6 +51,33 @@ public class CoreProvider {
         return CorePlugin.getItemManager().isCustomItem(item, fullId);
     }
 
+    /**
+     * [신규] 커스텀 3D 모델 아이템 등록
+     * PNG 텍스처와 Blockbench JSON 파일을 받아 리소스팩에 병합합니다.
+     *
+     * @param addon 애드온 인스턴스
+     * @param id 아이템 ID (예: sword)
+     * @param material 기본 마테리얼 (예: IRON_SWORD)
+     * @param textureFile 텍스처 파일 (.png)
+     * @param modelFile 모델 설정 파일 (.json)
+     * @param name 아이템 표시 이름
+     */
+    public static void registerModelItem(CoreAddon addon, String id, Material material, File textureFile, File modelFile, String name) {
+        // [수정] 텍스처 저장 경로를 "item/<namespace>_<id>.png"로 변경
+        // 예: item/infinity_tower_sword.png
+        String texturePath = "item/" + addon.getNamespace() + "_" + id + ".png";
+
+        CorePlugin.getResourcePackManager().registerTexture(addon, texturePath, textureFile);
+
+        // 모델 등록 (경로는 그대로 item/<id>)
+        String modelPath = "item/" + id;
+        // 마지막 인자는 이제 ResourcePackManager에서 자동으로 덮어쓰므로 null이나 빈 값이어도 되지만, 호환성을 위해 유지
+        CorePlugin.getResourcePackManager().registerModel(addon, modelPath, modelFile, texturePath);
+
+        // 아이템 매니저 등록
+        CorePlugin.getItemManager().registerItem(addon, id, material, textureFile, name);
+    }
+
     // --- 3. HUD (화면 표시) ---
     public static void showHud(Player player, String layerId, int priority, Function<Player, Component> provider) {
         CorePlugin.getHudManager().registerLayer(player, layerId, priority, provider);

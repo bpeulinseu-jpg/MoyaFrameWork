@@ -155,6 +155,15 @@ public class ItemGenerator {
         double base = 0;
 
         switch (stat) {
+            // stat 레벨비례 1~1.2배율
+            case VIT:
+            case LUK:
+            case INT:
+            case DEF:
+            case STR:
+                double statMult = 1 + (random.nextDouble() * 0.2);
+                base = level * statMult;
+                break;
             // 1. 최대 체력 (Level 비례: 0.5 ~ 2.0 배율)
             case MAX_HEALTH:
                 // 예: Lv.10 -> 5 ~ 20

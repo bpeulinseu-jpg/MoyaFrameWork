@@ -115,22 +115,44 @@ public class ItemRegistry {
     }
 
     private void register(String id, Material material, String name) {
-        String fileName = id + ".png";
-        File file = new File(plugin.getDataFolder(), fileName);
 
-        // 1. JAR에 파일이 있는지 확인하고 있으면 저장 (덮어쓰기)
+        String pngName = id + ".png";
+        String jsonName = id + ".json";
+
+        // [추가된 부분 1] JAR 안에 있는 리소스를 밖으로 꺼내기 (덮어쓰기 모드)
+        // 텍스처 추출 시도
         try {
-            plugin.saveResource(fileName, true);
+            plugin.saveResource(pngName, true); // true: 기존 파일이 있어도 덮어씀 (업데이트 반영)
         } catch (IllegalArgumentException e) {
-            // JAR에 파일이 없으면 아무것도 안 함
+            // JAR 안에 파일이 없으면 무시 (개발자가 안 넣은 경우)
         }
 
-        // 2. 파일이 존재하는 경우에만 Core에 등록
-        if (file.exists()) {
-            CoreProvider.registerItem(plugin, id, material, file, name);
-        } else {
-            // [수정] 파일이 없으면 null을 넘기지 않고 경고만 띄움
-            plugin.getLogger().warning("⚠️ 리소스 없음: " + fileName + " (아이템 등록 건너뜀)");
+        // 모델 JSON 추출 시도
+        try {
+            plugin.saveResource(jsonName, true);
+        } catch (IllegalArgumentException e) {
+            // JSON이 없으면 2D 아이템이라는 뜻
+        }
+
+        // 1. 파일 객체 생성
+        File textureFile = new File(plugin.getDataFolder(), id + ".png");
+        File modelFile = new File(plugin.getDataFolder(), id + ".json");
+
+        // 2. 리소스가 아예 없으면 경고 후 스킵 (또는 기본 아이템 등록)
+        if (!textureFile.exists()) {
+            plugin.getLogger().warning("⚠️ 리소스 없음: " + id + ".png");
+            return;
+        }
+
+        // 3. JSON 모델 파일이 있으면 -> 3D 모델로 등록!
+        if (modelFile.exists()) {
+            // CoreProvider에 새로 만든 메서드 호출
+            CoreProvider.registerModelItem(plugin, id, material, textureFile, modelFile, name);
+            plugin.getLogger().info("✅ 3D 모델 등록: " + id);
+        }
+        // 4. JSON이 없으면 -> 기존 방식(2D)대로 등록
+        else {
+            CoreProvider.registerItem(plugin, id, material, textureFile, name);
         }
     }
 

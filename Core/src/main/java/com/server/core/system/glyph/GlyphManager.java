@@ -36,6 +36,10 @@ public class GlyphManager {
     }
 
     public void registerGlyph(CoreAddon addon, String key, File file, int ascent, int height) {
+        if (file == null || !file.exists() || file.length() == 0) {
+            plugin.getLogger().warning("❌ 글리프 등록 실패 (파일 없음/손상): " + key);
+            return; // 파일이 없으면 JSON 등록도 중단해야 함!
+        }
         String fullKey = addon.getNamespace() + ":" + key;
 
         char unicode = (char) nextCode++;
