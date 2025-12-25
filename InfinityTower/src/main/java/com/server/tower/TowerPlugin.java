@@ -6,6 +6,7 @@ import com.server.tower.game.*;
 import com.server.tower.game.wave.WaveManager;
 import com.server.tower.item.EnhanceManager;
 import com.server.tower.item.ItemGenerator;
+import com.server.tower.system.dungeon.DungeonManager;
 import com.server.tower.system.transcendence.TranscendenceGui;
 import com.server.tower.system.transcendence.TranscendenceManager;
 import com.server.tower.ui.*;
@@ -28,6 +29,9 @@ import com.server.tower.game.perk.PerkRegistry;
 import com.server.tower.game.DungeonListener;
 import com.server.tower.game.RegenListener;
 import com.server.tower.system.transcendence.TranscendenceGui;
+import com.server.tower.game.skill.SkillManager;
+
+import java.io.File;
 
 public class TowerPlugin extends JavaPlugin implements CoreAddon {
 
@@ -50,7 +54,9 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     private WaveManager waveManager;
     private RestAreaManager restAreaManager;
     private TowerGimmickManager gimmickManager;
-
+    private DungeonManager dungeonManager;
+    private SkillManager skillManager;
+    public static int SLASH_ANIMATION_START_ID;
 
     @Override
     public void onEnable() {
@@ -67,6 +73,28 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         new VanillaHudHider(this).hideHearts();
 
         getLogger().info("🏰 Moya's Infinity Tower가 준비되었습니다.");
+
+        // 파티클 이미지 등록
+        saveResource("particles/spear_effect.png", true);
+
+        // 1. 파티클 리소스 추출 (slash_0.png ~ slash_4.png)
+        // src/main/resources/particles/slash/ 폴더에 이미지가 있어야 함
+        for(int i=0; i<5; i++) {
+            File file = new File(getDataFolder(), "particles/slash/slash_" + i + ".png");
+            if(!file.exists()) {
+                saveResource("particles/slash/slash_" + i + ".png", false);
+            }
+        }
+
+        // 2. 시퀀스 등록 (Core에게 알림)
+        // "slash" -> slash_0, slash_1 ... 로 등록됨
+        if (com.server.core.CorePlugin.getParticleTextureManager() != null) {
+            SLASH_ANIMATION_START_ID = com.server.core.CorePlugin.getParticleTextureManager()
+                    .registerSequence(this, "slash", 5);
+            getLogger().info("검기 애니메이션 등록 완료 (Start ID: " + SLASH_ANIMATION_START_ID + ")");
+        }
+
+        this.skillManager = new SkillManager(this);
 
 
 
@@ -90,6 +118,8 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
         this.waveManager = new WaveManager();
         this.restAreaManager = new RestAreaManager(this);
         this.gimmickManager = new TowerGimmickManager(this);
+        this.dungeonManager = new DungeonManager(this);
+        this.skillManager = new SkillManager(this);
 
         this.transcendenceManager = new TranscendenceManager(this);
         // [수정] 매니저를 먼저 생성
@@ -117,6 +147,12 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
 
         //명령어 등록
         if (getCommand("tower") != null) getCommand("tower").setExecutor(this);
+
+        // 1. 파일 추출
+        saveResource("particles/spear_icon.png", false);
+
+        // 2. 파티클 텍스처로 등록 (ID: "spear_icon")
+        CoreProvider.registerParticleTexture(this, "spear_icon", new File(getDataFolder(), "particles/spear_icon.png"));
 
 
         getLogger().info("🏰 Moya's Infinity Tower가 준비되었습니다.");
@@ -324,5 +360,7 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
     public WaveManager getWaveManager() { return waveManager; }
     public RestAreaManager getRestAreaManager() { return restAreaManager; }
     public TowerGimmickManager getGimmickManager() { return gimmickManager; }
+    public DungeonManager getDungeonManager() { return dungeonManager; }
+    public SkillManager getSkillManager() { return skillManager; }
 
 }

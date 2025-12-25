@@ -139,7 +139,7 @@ public class BlockListener implements Listener {
         ItemStack self = CorePlugin.getItemManager().getItem(fullId);
         if (self != null) block.getWorld().dropItemNaturally(block.getLocation(), self);
     }
-
+    /*
     // 3. 우클릭 상호작용 및 설치 제어
     @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
@@ -176,6 +176,8 @@ public class BlockListener implements Listener {
             placeCustomBlockManually(event, clickedBlock, handItem);
         }
     }
+
+     */
 
     private boolean isVanillaInteractable(Block block) {
         Material type = block.getType();

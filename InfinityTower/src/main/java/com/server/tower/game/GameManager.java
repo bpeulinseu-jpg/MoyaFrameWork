@@ -6,6 +6,8 @@ import com.server.core.api.builder.MobBuilder;
 import com.server.tower.TowerPlugin;
 import com.server.tower.game.wave.FloorType;
 import com.server.tower.game.wave.WaveData;
+import com.server.tower.item.ItemGenerator;
+import com.server.tower.system.dungeon.DungeonInstance;
 import com.server.tower.user.TowerUserData;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -29,6 +31,7 @@ public class GameManager {
     private final Map<UUID, GameState> activeGames = new HashMap<>();
     private final Map<UUID, BukkitTask> floorTimers = new HashMap<>(); // 타임어택용 타이머
     public List<UUID> spawnedGimmicks = new ArrayList<>(); // [추가] 기믹 관리용
+
 
     // 챕터별 아레나 중심 좌표 (Chapter 1, 2, 3...)
     // 실제로는 MapManager에 등록된 워프 포인트를 사용하는 것이 좋음
@@ -76,63 +79,58 @@ public class GameManager {
     public void startGame(Player player) {
         if (activeGames.containsKey(player.getUniqueId())) return;
 
-        // 초기화
+        // [수정] 인스턴스 할당 요청
+        DungeonInstance instance = plugin.getDungeonManager().assignInstance(player);
+        if (instance == null) return; // 슬롯 꽉 참
+
+        // 초기화 및 세션 시작
         activeGames.remove(player.getUniqueId());
-        if (floorTimers.containsKey(player.getUniqueId())) {
-            floorTimers.get(player.getUniqueId()).cancel();
-            floorTimers.remove(player.getUniqueId());
-        }
-
-        if (defaultArena == null) defaultArena = player.getLocation();
-
-        // 세션 시작
         CoreProvider.startSession(player);
-        activeGames.put(player.getUniqueId(), new GameState());
 
-        // 챕터 1 맵으로 이동
-        // (나중에 챕터별 맵이 생기면 MapManager.teleport 사용)
-        player.teleport(defaultArena.clone().add(0, 1, 0));
+        GameState state = new GameState();
+        activeGames.put(player.getUniqueId(), state);
 
-        player.sendMessage("§a[Tower] 탑에 입장했습니다. 1층부터 도전을 시작합니다!");
-        player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1f, 1f);
+        // [수정] 1층 맵 로드 및 이동
+        plugin.getDungeonManager().loadMap(instance, 1, 1);
 
-        // 3초 후 1층 시작
+        // 맵 로딩 딜레이(비동기) 고려하여 약간 늦게 텔레포트 (안전장치)
         new BukkitRunnable() {
             @Override
             public void run() {
-                startNextFloor(player);
+                // 구조물의 스폰 포인트(중앙 + Y 1칸 위)로 이동
+                player.teleport(instance.getCenter().clone().add(0, 1, 0));
+                player.sendMessage("§a[Tower] 인스턴스 던전에 입장했습니다!");
+                player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1f, 1f);
+
+                startNextFloor(player); // 바로 시작
             }
-        }.runTaskLater(plugin, 60L);
+        }.runTaskLater(plugin, 20L); // 1초 뒤 이동
     }
 
-    // 2. 다음 층 진행 (핵심 로직)
+    // 2. 다음 층 진행
     public void startNextFloor(Player player) {
         GameState state = activeGames.get(player.getUniqueId());
-        if (state == null) return;
+        DungeonInstance instance = plugin.getDungeonManager().getInstance(player);
 
-        // 기존 타이머/몹 정리
-        cleanupFloor(player);
+        if (state == null || instance == null) return;
 
+        cleanupFloor(player); // 이전 층 몹/기믹 정리
         state.floor++;
 
-        // 챕터 변경 체크 (10층 클리어 후 11층 진입 시)
+        // 챕터 변경 체크
         if (state.floor > 10) {
             state.chapter++;
             state.floor = 1;
-            // TODO: 맵 이동 및 챕터 변경 연출 (나중에 구현)
-            player.sendMessage("§b[System] 챕터 " + state.chapter + " 진입!");
         }
 
-        // WaveManager에서 해당 층 데이터 가져오기
-        WaveData data = plugin.getWaveManager().getWaveData(state.floor);
-        state.currentWaveData = data;
+        // [수정] 맵 교체 (제자리 덮어쓰기)
+        // 1층은 startGame에서 이미 로드했으므로 패스하거나, 다시 로드해도 무방함
+        // 여기서는 매 층마다 맵을 로드한다고 가정 (지형이 바뀔 수 있으므로)
+        plugin.getDungeonManager().loadMap(instance, state.chapter, state.floor);
 
-        // 층 타입에 따른 분기 처리
-        if (data.getType() == FloorType.REST) {
-            startRestFloor(player, state);
-        } else {
-            startCombatFloor(player, state, data);
-        }
+        // ... (나머지 몬스터 소환 로직은 기존과 동일) ...
+        // 단, 소환 위치 기준점(center)을 instance.getCenter()로 잡아야 함
+        startCombatFloor(player, state, plugin.getWaveManager().getWaveData(state.floor), instance.getCenter());
     }
 
     // 휴게실 (전투 없음)
@@ -152,11 +150,18 @@ public class GameManager {
         player.sendMessage("§e      상인에게서 필요한 물품을 구매하세요.");
     }
 
+    // [핵심] 현재 난이도 레벨 계산 (챕터 1, 1층 = 1레벨 / 챕터 2, 1층 = 11레벨)
+    private int calculateGameLevel(GameState state) {
+        return ((state.chapter - 1) * 10) + state.floor;
+    }
+
     // 전투 스테이지 (일반, 타임어택, 보스)
-    private void startCombatFloor(Player player, GameState state, WaveData data) {
+    private void startCombatFloor(Player player, GameState state, WaveData data, Location center) {
         // 1. 몬스터 소환
         int totalMobs = 0;
-        Location center = player.getLocation(); // 아레나 중앙 기준
+
+
+        int currentLevel = calculateGameLevel(state); // 현재 레벨 계산
 
         for (Map.Entry<String, Integer> entry : data.getMonsters().entrySet()) {
             String mobId = entry.getKey();
@@ -166,9 +171,10 @@ public class GameManager {
             int mobLevel = (state.chapter - 1) * 10 + state.floor;
 
             for (int i = 0; i < count; i++) {
-                Location spawnLoc = getRandomLocation(center, 10);
+                Location spawnLoc = getRandomLocation(center, 20);
+                // 레벨 스케일링 적용 (체력/공격력 증가)
                 LivingEntity mob = MobBuilder.from(mobId)
-                        .level(mobLevel)
+                        .level(currentLevel)
                         .spawn(spawnLoc);
                 state.spawnedMobs.add(mob.getUniqueId());
             }
@@ -177,8 +183,18 @@ public class GameManager {
         state.remainingMobs = totalMobs;
 
         // 2. 기믹 소환 (있다면)
-        if (data.getGimmickId() != null) {
-            spawnGimmick(data.getGimmickId(), getRandomLocation(center, 5));
+        for (Map.Entry<String, Integer> entry : data.getGimmicks().entrySet()) {
+            String gimmickId = entry.getKey();
+            int count = entry.getValue(); // 예: 3개
+
+            // A. 안내 메시지는 1번만 출력
+            plugin.getGimmickManager().announceGimmick(gimmickId);
+
+            // B. 개수만큼 소환 (서로 다른 위치)
+            for (int i = 0; i < count; i++) {
+                Location loc = getRandomLocation(center, 15);
+                spawnGimmick(gimmickId, loc, state);
+            }
         }
 
         // 3. UI 및 알림
@@ -251,7 +267,7 @@ public class GameManager {
             state.remainingMobs--;
 
             // 보상 지급 (골드/아이템) - 기존 로직 유지
-            giveRewards(player, state, mob);
+            handleDropsAndRewards(player, state, mob);
 
             // 보스바 갱신
             updateBossBar(player, state, state.remainingMobs + 1, BossBar.Color.RED);
@@ -262,6 +278,98 @@ public class GameManager {
             }
         }
     }
+
+    // 보상 및 드랍 테이블 처리
+    // [신규] 보상 및 드랍 테이블 처리
+    private void handleDropsAndRewards(Player player, GameState state, LivingEntity mob) {
+        int level = calculateGameLevel(state);
+        boolean isBoss = (state.currentWaveData.getType() == FloorType.BOSS);
+
+        // 1. 골드 지급 (기존 유지)
+        int baseGold = 10 + (level * 5);
+        if (isBoss) baseGold *= 5;
+        int finalGold = baseGold + (int)(Math.random() * (baseGold * 0.2));
+
+        TowerUserData data = plugin.getUserManager().getUser(player);
+        if (data != null) {
+            data.gold += finalGold;
+            plugin.getUserManager().updateSidebar(player);
+        }
+
+        // 2. 아이템 드랍 (정밀 확률 테이블)
+        Location dropLoc = mob.getLocation();
+
+        // [핵심 수정] 0.0 ~ 100.0 사이의 실수 생성 (소수점 확률 가능)
+        double roll = Math.random() * 100.0;
+
+        if (isBoss) {
+            // === [보스 드랍] ===
+            // 보스는 확정 드랍이 많으므로 roll을 쓰지 않거나, 희귀템에만 씀
+
+            // 1. 에테르 (100%)
+            if (data != null) {
+                data.ether += 1;
+                player.sendMessage("§b[보상] 에테르 1개를 획득했습니다!");
+                plugin.getUserManager().updateSidebar(player);
+            }
+
+            // 2. 장비 (100%)
+            if (Math.random() < 0.5) {
+                dropLoc.getWorld().dropItemNaturally(dropLoc, ItemGenerator.generateWeapon(level));
+            } else {
+                dropLoc.getWorld().dropItemNaturally(dropLoc, ArmorGenerator.generateArmor(level));
+            }
+
+            // 3. 강화 재료 (100%)
+            dropLoc.getWorld().dropItemNaturally(dropLoc, getScrollOrGem(level));
+
+            // 4. 희귀 재료 (20% 확률) -> 100판 중 20판
+            if (roll < 20.0) {
+                String rareId = (Math.random() < 0.5) ? "infinity_tower:protection_charm" : "infinity_tower:lucky_stone";
+                dropLoc.getWorld().dropItemNaturally(dropLoc, CoreProvider.getItem(rareId));
+                player.sendMessage("§6✨ 희귀 아이템이 드랍되었습니다!");
+            }
+
+        } else {
+            // === [일반 몬스터 드랍] (roll 하나로 판정) ===
+            // roll은 0.0 ~ 100.0 사이의 숫자입니다.
+            // if - else if 구조를 사용하여 가장 낮은 확률부터 체크하거나 범위를 나눕니다.
+
+            // 1. 보석 1%
+            if (roll < 0.1) {
+                String gemId = (Math.random() < 0.5) ? "infinity_tower:gem_str" : "infinity_tower:gem_int";
+                dropLoc.getWorld().dropItemNaturally(dropLoc, CoreProvider.getItem(gemId));
+                // player.sendMessage("§d💎 보석을 발견했습니다!"); // 너무 자주 뜨면 끄기
+            }
+            // 2. 강화 주문서 (1.5% 확률) -> roll이 0.05 이상이고 1.55 미만일 때 (누적 확률 아님, 개별 체크 권장)
+            // 여기서는 독립 시행을 위해 별도의 roll을 돌리거나, else if로 범위를 쪼개야 합니다.
+            // 편의상 독립 시행(각각 주사위 굴리기)으로 변경하겠습니다.
+
+            if (Math.random() * 100.0 < 3.0) { // 3.0% 확률 (장비)
+                if (Math.random() < 0.5) {
+                    dropLoc.getWorld().dropItemNaturally(dropLoc, ItemGenerator.generateWeapon(level));
+                } else {
+                    dropLoc.getWorld().dropItemNaturally(dropLoc, ArmorGenerator.generateArmor(level));
+                }
+            }
+
+            if (Math.random() * 100.0 < 1.0) { // 1.0% 확률 (주문서)
+                String scrollId = (Math.random() < 0.5) ? "infinity_tower:scroll_weapon" : "infinity_tower:scroll_armor";
+                dropLoc.getWorld().dropItemNaturally(dropLoc, CoreProvider.getItem(scrollId));
+            }
+        }
+    }
+
+    // 유틸리티: 주문서나 보석 반환
+    private ItemStack getScrollOrGem(int level) {
+        double r = Math.random();
+        if (r < 0.4) return CoreProvider.getItem("infinity_tower:scroll_weapon");
+        if (r < 0.8) return CoreProvider.getItem("infinity_tower:scroll_armor");
+        if (r < 0.9) return CoreProvider.getItem("infinity_tower:gem_str");
+        return CoreProvider.getItem("infinity_tower:gem_int");
+    }
+
+
 
     private void completeFloor(Player player, GameState state) {
         // 타이머 취소
@@ -299,6 +407,7 @@ public class GameManager {
             CoreProvider.endSession(player);
             CoreProvider.removeBossBar(player, "wave_info");
             CoreProvider.clearHud(player);
+            plugin.getDungeonManager().releaseInstance(player);
 
             if (player.isOnline()) {
                 plugin.getUserManager().updateSidebar(player);
@@ -338,12 +447,43 @@ public class GameManager {
     }
 
     private Location getRandomLocation(Location center, double radius) {
+        // 1. 랜덤 X, Z 좌표 구하기
         double angle = Math.random() * Math.PI * 2;
         double dist = Math.random() * radius;
         double x = center.getX() + (Math.cos(angle) * dist);
         double z = center.getZ() + (Math.sin(angle) * dist);
-        double y = center.getWorld().getHighestBlockYAt((int)x, (int)z) + 1;
-        return new Location(center.getWorld(), x, y, z);
+
+        // 2. Y좌표 보정 (Smart Ground Detection)
+        // 기준 높이(center.getY())에서 시작해서 위아래로 탐색하여 '땅'을 찾음
+        int startY = (int) center.getY();
+        int foundY = startY;
+
+        org.bukkit.World world = center.getWorld();
+
+        // A. 현재 위치가 고체 블록인 경우 (땅 속) -> 위로 올라가며 빈 공간 찾기
+        if (world.getBlockAt((int)x, startY, (int)z).getType().isSolid()) {
+            for (int y = startY; y < startY + 15; y++) { // 최대 15칸 위로 탐색
+                // 현재 칸과 위 칸이 비어있으면(숨 쉴 공간) 거기가 스폰 위치
+                if (!world.getBlockAt((int)x, y, (int)z).getType().isSolid() &&
+                        !world.getBlockAt((int)x, y + 1, (int)z).getType().isSolid()) {
+                    foundY = y;
+                    break;
+                }
+            }
+        }
+        // B. 현재 위치가 빈 공간인 경우 (공중) -> 아래로 내려가며 밟을 땅 찾기
+        else {
+            for (int y = startY; y > startY - 15; y--) { // 최대 15칸 아래로 탐색
+                // 바로 아래 칸이 단단한 블록이면 현재 칸이 스폰 위치
+                if (world.getBlockAt((int)x, y - 1, (int)z).getType().isSolid()) {
+                    foundY = y;
+                    break;
+                }
+            }
+        }
+
+        // 3. 최종 위치 반환 (블록 중앙 +0.5)
+        return new Location(world, x, foundY, z);
     }
 
     private void updateBossBar(Player player, GameState state, int maxMobs, BossBar.Color color) {
@@ -362,6 +502,7 @@ public class GameManager {
     }
 
     // 기존 보상 로직 분리
+    /*
     private void giveRewards(Player player, GameState state, LivingEntity mob) {
         int goldReward = 10 + (int)(Math.random() * 10) + (state.floor * 2);
         TowerUserData data = plugin.getUserManager().getUser(player);
@@ -379,22 +520,29 @@ public class GameManager {
         }
     }
 
+     */
+
     private void showGoldNotification(Player player, int amount) {
         player.sendMessage(Component.text("§e+" + amount + " G"));
     }
 
     // 기믹 소환 (임시)
-    private void spawnGimmick(String gimmickId, Location center) {
+    private void spawnGimmick(String gimmickId, Location center, GameState state) {
         if (gimmickId == null) return;
 
         /// 기믹은 맵 중앙 근처 랜덤 위치에 소환
-        Location loc = getRandomLocation(center, 8);
+        Location loc = getRandomLocation(center, 15);
 
         // 바닥에 붙이기 (가장 높은 블록 위)
-        loc.setY(loc.getWorld().getHighestBlockYAt(loc) + 1);
+        //loc.setY(loc.getWorld().getHighestBlockYAt(loc) + 1);
 
         // [수정] TowerGimmickManager에게 위임
         plugin.getGimmickManager().spawnGimmick(gimmickId, loc);
+
+        UUID gimmickIdUuid = plugin.getGimmickManager().spawnGimmick(gimmickId, loc);
+        if (gimmickIdUuid != null) {
+            state.spawnedGimmicks.add(gimmickIdUuid);
+        }
 
         switch (gimmickId) {
             case "BLOOD_ALTAR": // [1~3F] 피의 제단

@@ -102,7 +102,9 @@ public class ResourcePackManager {
             File outputZip = new File(dataFolder, "resourcepack.zip");
 
             try {
-                if (buildDir.exists()) deleteDirectory(buildDir.toPath());
+                if (buildDir.exists()) {
+                    deleteDirectory(buildDir);
+                }
                 buildDir.mkdirs();
                 File assetsDir = new File(buildDir, "assets"); // assets 변수 미리 정의
 
@@ -118,6 +120,11 @@ public class ResourcePackManager {
                     File dest = new File(buildDir, "assets/" + reg.namespace() + "/sounds/" + reg.path());
                     dest.getParentFile().mkdirs();
                     Files.copy(reg.sourceFile().toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                // [추가] 파티클 텍스처 모델 생성
+                if (CorePlugin.getParticleTextureManager() != null) {
+                    CorePlugin.getParticleTextureManager().generateModels(assetsDir);
                 }
 
                 // [중요] 3. Core의 기본 파일 생성 (순서 변경됨: 먼저 실행!)
@@ -182,7 +189,7 @@ public class ResourcePackManager {
                         File dest = new File(buildDir, "assets/minecraft/models/item/" + fileName);
                         dest.getParentFile().mkdirs();
 
-                        // 파일 쓰기 (기존 파일 덮어쓰기)
+                        // 파일 쓰기 (기존 파일 덮어쓰기)F
                         try (Writer writer = new FileWriter(dest)) {
                             gson.toJson(finalJson, writer);
                         }
@@ -244,11 +251,18 @@ public class ResourcePackManager {
         }
     }
 
-    private void deleteDirectory(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        try (java.util.stream.Stream<Path> walk = Files.walk(path)) {
-            walk.sorted((a, b) -> b.compareTo(a)).map(Path::toFile).forEach(File::delete);
+    private boolean deleteDirectory(File file) {
+        if (!file.exists()) return true;
+
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File child : files) {
+                    deleteDirectory(child);
+                }
+            }
         }
+        return file.delete();
     }
 
     private void zipDirectory(File sourceFolder, File zipFile) throws IOException {

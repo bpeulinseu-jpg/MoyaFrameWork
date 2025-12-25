@@ -2,7 +2,6 @@ package com.server.core.system.projectile;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
 
@@ -10,22 +9,21 @@ import java.util.function.Consumer;
 
 public class CustomProjectile {
 
-    private final LivingEntity shooter;
-    private final ItemDisplay visual; // 보여지는 모습 (1.19.4+)
-    private final Vector direction;
-    private final double speed;
-    private final double gravity; // 0.0 = 직사, 0.05 = 화살 정도
-    private final double maxDistance;
-    private double distanceTraveled = 0;
+    protected final LivingEntity shooter;
+    protected final Entity visual;
+    protected final Vector direction;
+    protected final double speed;
+    protected final double gravity;
+    protected final double maxDistance;
+    protected double distanceTraveled = 0;
 
-    // 콜백 함수 (맞았을 때 실행)
-    private final Consumer<Entity> onHitEntity;
-    private final Runnable onHitBlock;
-    private final Runnable onTimeout; // 사거리 끝남
+    protected final Consumer<Entity> onHitEntity;
+    protected final Runnable onHitBlock;
+    protected final Runnable onTimeout;
 
-    private boolean isDead = false;
+    protected boolean isDead = false;
 
-    public CustomProjectile(LivingEntity shooter, ItemDisplay visual, Vector direction, double speed, double gravity, double maxDistance, Consumer<Entity> onHitEntity, Runnable onHitBlock, Runnable onTimeout) {
+    public CustomProjectile(LivingEntity shooter, Entity visual, Vector direction, double speed, double gravity, double maxDistance, Consumer<Entity> onHitEntity, Runnable onHitBlock, Runnable onTimeout) {
         this.shooter = shooter;
         this.visual = visual;
         this.direction = direction.normalize().multiply(speed);
@@ -40,50 +38,54 @@ public class CustomProjectile {
     public void tick() {
         if (isDead) return;
 
-        Location currentLoc = visual.getLocation();
+        // [핵심 수정] 속도가 0이면(제자리 이펙트) 물리 연산(이동, 충돌)을 건너뜀
+        // 아주 작은 값(0.0001)보다 클 때만 실행
+        if (speed > 0.0001) {
+            Location currentLoc = visual.getLocation();
 
-        // 1. 중력 적용
-        if (gravity > 0) {
-            direction.setY(direction.getY() - gravity);
-        }
-
-        // 2. 이동할 위치 계산
-        Location nextLoc = currentLoc.clone().add(direction);
-
-        // 3. 충돌 감지 (RayTrace)
-        // 현재 위치에서 다음 위치까지 선을 그어 충돌 체크
-        var result = currentLoc.getWorld().rayTrace(
-                currentLoc,
-                direction,
-                direction.length(),
-                org.bukkit.FluidCollisionMode.NEVER,
-                true, // 통과 가능한 블록 무시 여부
-                0.5, // 히트박스 크기 보정
-                (entity) -> entity != shooter && entity != visual && entity instanceof LivingEntity // 나 자신과 내 투사체 제외
-        );
-
-        if (result != null) {
-            if (result.getHitEntity() != null) {
-                // 엔티티 명중
-                if (onHitEntity != null) onHitEntity.accept(result.getHitEntity());
-                remove();
-                return;
-            } else if (result.getHitBlock() != null) {
-                // 블록 명중
-                if (onHitBlock != null) onHitBlock.run();
-                remove();
-                return;
+            // 1. 중력
+            if (gravity > 0) {
+                direction.setY(direction.getY() - gravity);
             }
-        }
 
-        // 4. 이동 적용
-        visual.teleport(nextLoc);
+            // 2. 이동 및 회전
+            Location nextLoc = currentLoc.clone().add(direction);
+            nextLoc.setDirection(direction);
 
-        // 5. 사거리 체크
-        distanceTraveled += speed;
-        if (distanceTraveled >= maxDistance) {
-            if (onTimeout != null) onTimeout.run();
-            remove();
+            // 3. 충돌 감지 (속도가 0이면 direction이 (0,0,0)이라 여기서 에러났었음)
+            try {
+                var result = currentLoc.getWorld().rayTrace(
+                        currentLoc.clone().add(0, 0.5, 0),
+                        direction,
+                        direction.length(),
+                        org.bukkit.FluidCollisionMode.NEVER,
+                        true,
+                        0.5,
+                        (entity) -> entity != shooter && entity != visual && entity instanceof LivingEntity
+                );
+
+                if (result != null) {
+                    if (result.getHitEntity() != null) {
+                        if (onHitEntity != null) onHitEntity.accept(result.getHitEntity());
+                        remove();
+                        return;
+                    } else if (result.getHitBlock() != null) {
+                        if (onHitBlock != null) onHitBlock.run();
+                        remove();
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 4. 이동 적용
+            visual.teleport(nextLoc);
+
+            // 5. 사거리 체크
+            distanceTraveled += speed;
+            if (distanceTraveled >= maxDistance) {
+                if (onTimeout != null) onTimeout.run();
+                remove();
+            }
         }
     }
 
@@ -94,5 +96,9 @@ public class CustomProjectile {
 
     public boolean isDead() {
         return isDead;
+    }
+
+    public Entity getVisual() {
+        return visual;
     }
 }

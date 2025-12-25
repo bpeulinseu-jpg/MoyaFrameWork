@@ -243,8 +243,10 @@ public class CoreProvider {
     }
 
     // --- 14. 투사체 (V1.3) ---
-    public static void shootProjectile(org.bukkit.entity.LivingEntity shooter, ItemStack item, double speed, double range, Consumer<org.bukkit.entity.Entity> onHit) {
-        CorePlugin.getProjectileManager().shoot(shooter, item, speed, 0.0, range, onHit); // 중력 0 (직사)
+    // [수정] 크기 조절 가능한 투사체 발사
+    public static void shootProjectile(org.bukkit.entity.LivingEntity shooter, ItemStack item, double speed, double range, float scale, Consumer<org.bukkit.entity.Entity> onHit) {
+        // 중력 0.0 (직사)
+        CorePlugin.getProjectileManager().shoot(shooter, item, speed, 0.0, range, scale, onHit);
     }
 
     // --- 15. 인벤토리 유틸리티 (V1.3) ---
@@ -305,4 +307,36 @@ public class CoreProvider {
     public static java.util.UUID spawnInteractableGimmick(org.bukkit.Location loc, Material material, Consumer<Player> onInteract) {
         return CorePlugin.getGimmickManager().createInteractable(loc, material, onInteract);
     }
+
+    // --- 20. 파티클 시스템 (V1.5) ---
+
+    public static com.server.core.system.particle.ParticleManager getParticleManager() {
+        return CorePlugin.getParticleManager();
+    }
+
+    // 편의 메서드: 빌더 생성
+    public static com.server.core.system.particle.ParticleBuilder createParticle() {
+        return com.server.core.system.particle.ParticleBuilder.create();
+    }
+
+    // [추가] 컬러 이미지 파티클 그리기
+    public static void drawColoredImage(org.bukkit.Location center, org.bukkit.util.Vector direction, java.io.File imageFile, double scale, double rotation, float size) {
+        CorePlugin.getParticleManager().drawColoredImage(center, direction, imageFile, scale, rotation, size);
+    }
+
+    // --- 파티클 텍스처 등록 ---
+    public static void registerParticleTexture(CoreAddon addon, String id, File pngFile) {
+        CorePlugin.getParticleTextureManager().register(addon, id, pngFile);
+    }
+
+    // ID로 CMD 가져오기
+    public static int getParticleModelData(String id) {
+        return CorePlugin.getParticleTextureManager().getModelData(id);
+    }
+
+    public static void shootAnimatedProjectile(org.bukkit.entity.LivingEntity shooter, double speed, double range, org.bukkit.util.Vector scale, org.bukkit.util.Vector rotation, int startCmd, int frameCount, int tickPerFrame, boolean loop, java.util.function.Consumer<org.bukkit.entity.Entity> onHit) {
+        CorePlugin.getProjectileManager().shootAnimated(shooter, speed, range, scale, rotation, startCmd, frameCount, tickPerFrame, loop, onHit);
+    }
+
+
 }

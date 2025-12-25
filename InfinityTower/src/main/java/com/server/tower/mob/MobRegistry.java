@@ -36,7 +36,9 @@ public class MobRegistry {
         sniper.setStats(15, 5, 0.23);
         sniper.setEquipment(
                 new ItemStack(Material.CROSSBOW),
-                null, null, null, null);
+                new ItemBuilder(Material.LEATHER_HELMET).build(), // 헬멧 추가
+                null, null, null
+        );
         sniper.addSkill(new SnipeSkill(plugin)); // [스킬] 저격
 
         // 3. 리빙 아머 (탱커) - 아이언 골렘 (혹은 갑옷 입은 좀비)

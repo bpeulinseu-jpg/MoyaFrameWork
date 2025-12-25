@@ -10,6 +10,7 @@ import com.server.core.system.glyph.GlyphManager;
 import com.server.core.system.gui.GuiManager;
 import com.server.core.system.data.DataManager;
 import com.server.core.system.item.ItemManager;
+import com.server.core.system.particle.ParticleTextureManager;
 import com.server.core.system.resource.ResourcePackManager;
 import com.server.core.system.resource.WebServerManager;
 import com.server.core.system.browser.GlyphBrowser;
@@ -41,6 +42,7 @@ import com.server.core.system.browser.MobBrowser;
 import com.server.core.system.cooldown.CooldownManager;
 import com.server.core.system.projectile.ProjectileManager;
 import com.server.core.system.combat.DamageManager;
+import com.server.core.system.particle.ParticleManager;
 
 public class CorePlugin extends JavaPlugin implements Listener {
 
@@ -71,6 +73,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
     private DamageManager damageManager;
     private MapManager mapManager;
     private GimmickManager gimmickManager;
+    private ParticleManager particleManager;
+    private ParticleTextureManager particleTextureManager;
 
     @Override
     public void onEnable() {
@@ -107,6 +111,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
         this.damageManager = new DamageManager(this);
         this.mapManager = new MapManager(this);
         this.gimmickManager = new GimmickManager(this);
+        this.particleManager = new ParticleManager(this);
+        this.particleTextureManager = new ParticleTextureManager(this);
 
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("CoreFramework Enabled!");
@@ -322,6 +328,8 @@ public class CorePlugin extends JavaPlugin implements Listener {
     public static DamageManager getDamageManager() { return instance.damageManager; }
     public static MapManager getMapManager() { return instance.mapManager; }
     public static GimmickManager getGimmickManager() { return instance.gimmickManager; }
+    public static ParticleManager getParticleManager() { return instance.particleManager; }
+    public static ParticleTextureManager getParticleTextureManager() { return instance.particleTextureManager; }
 
     public static void registerAddon(CoreAddon addon) {
         if (instance != null) instance.addonManager.register(addon);

@@ -5,28 +5,33 @@ import java.util.Map;
 
 public class WaveData {
     private final FloorType type;
-    private final Map<String, Integer> monsters; // MobID -> 마리수
-    private final int timeLimit; // 초 단위 (0이면 제한 없음)
-    private final String gimmickId; // 기믹 ID (예: "TOTEM", "ALTAR") - 없으면 null
+    private final Map<String, Integer> monsters;
+    private final int timeLimit;
+
+    // [수정] 단일 String -> Map<ID, 개수> 로 변경
+    private final Map<String, Integer> gimmicks;
 
     private WaveData(Builder builder) {
         this.type = builder.type;
         this.monsters = builder.monsters;
         this.timeLimit = builder.timeLimit;
-        this.gimmickId = builder.gimmickId;
+        this.gimmicks = builder.gimmicks;
     }
 
     public FloorType getType() { return type; }
     public Map<String, Integer> getMonsters() { return monsters; }
     public int getTimeLimit() { return timeLimit; }
-    public String getGimmickId() { return gimmickId; }
 
-    // --- Builder Pattern ---
+    // [수정] Getter 변경
+    public Map<String, Integer> getGimmicks() { return gimmicks; }
+
     public static class Builder {
         private FloorType type = FloorType.NORMAL;
         private final Map<String, Integer> monsters = new HashMap<>();
         private int timeLimit = 0;
-        private String gimmickId = null;
+
+        // [수정] 기믹 맵 초기화
+        private final Map<String, Integer> gimmicks = new HashMap<>();
 
         public Builder type(FloorType type) {
             this.type = type;
@@ -43,9 +48,16 @@ public class WaveData {
             return this;
         }
 
-        public Builder gimmick(String gimmickId) {
-            this.gimmickId = gimmickId;
+        // [수정] 기믹 추가 메서드 (개수 지정 가능)
+        // 예: .addGimmick("CURSE_TOTEM", 3)
+        public Builder addGimmick(String gimmickId, int amount) {
+            gimmicks.put(gimmickId, gimmicks.getOrDefault(gimmickId, 0) + amount);
             return this;
+        }
+
+        // (호환성 유지용) 개수 안 적으면 1개
+        public Builder gimmick(String gimmickId) {
+            return addGimmick(gimmickId, 1);
         }
 
         public WaveData build() {

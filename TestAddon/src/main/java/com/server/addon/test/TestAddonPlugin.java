@@ -273,7 +273,7 @@ public class TestAddonPlugin extends JavaPlugin implements CoreAddon, Listener {
             if (projectileVisual == null) projectileVisual = new ItemStack(Material.REDSTONE_BLOCK); // 없으면 대체품
 
             // 속도: 1.5, 사거리: 30칸
-            CoreProvider.shootProjectile(player, projectileVisual, 1.5, 30.0, (target) -> {
+            CoreProvider.shootProjectile(player, projectileVisual, 1.5, 30.0, 1.0f, (target) -> {
                 // [명중 시 실행될 코드]
                 if (target instanceof org.bukkit.entity.LivingEntity livingTarget) {
                     // 1. 대미지 계산 (예: 지능 스탯 비례)

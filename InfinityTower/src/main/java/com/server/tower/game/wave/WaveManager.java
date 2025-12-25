@@ -42,7 +42,6 @@ public class WaveManager {
                 .type(FloorType.NORMAL)
                 .addMob("infinity_tower:goblin", 12)
                 .addMob("infinity_tower:goblin_shaman", 2) // 버퍼 등장
-                .gimmick("BLOOD_ALTAR") // [기믹] 체력을 바쳐 공격력 증가
                 .build());
 
 
@@ -95,7 +94,7 @@ public class WaveManager {
                 .type(FloorType.NORMAL)
                 .addMob("infinity_tower:shadow_wraith", 4) // 은신 암살자
                 .addMob("infinity_tower:toxic_slime", 8)   // 자폭병
-                .gimmick("CURSE_TOTEM") // [기믹] 몬스터 무적 토템 (우선 파괴 강제)
+                .addGimmick("CURSE_TOTEM", 1)  // [기믹] 몬스터 무적 토템 (우선 파괴 강제)
                 .build());
 
         // 9F: 총력전 (보스 전 마지막 관문)

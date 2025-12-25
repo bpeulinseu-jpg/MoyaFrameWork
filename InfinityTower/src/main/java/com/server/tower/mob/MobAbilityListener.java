@@ -8,11 +8,13 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Slime;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.entity.SlimeSplitEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -41,27 +43,49 @@ public class MobAbilityListener implements Listener {
     @EventHandler
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
-        String mobId = CorePlugin.getMobManager().getCustomMobId(entity);
+        String mobId = CoreProvider.getCustomMobId(entity);
         if (mobId == null) return;
 
         if (mobId.endsWith("toxic_slime")) {
-            // [수정] 1.21 호환: ITEM_SLIME 사용
-            entity.getWorld().spawnParticle(
-                    Particle.ITEM, // ITEM_SLIME 대신 ITEM 사용 (범용성 좋음)
-                    entity.getLocation().add(0, 0.5, 0),
-                    30, // 개수
-                    0.5, 0.5, 0.5, // 오프셋
-                    0.1, // 속도
-                    new ItemStack(Material.SLIME_BALL) // 데이터
-            );
+            try {
+                // [수정] 폭발 이펙트 (EXPLOSION_EMITTER = 거대한 폭발)
+                entity.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, entity.getLocation(), 1);
 
-            entity.getNearbyEntities(3, 3, 3).forEach(target -> {
-                if (target instanceof Player p) {
-                    p.damage(5.0, entity);
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1));
-                    p.sendMessage("§2[독] 맹독 슬라임이 자폭했습니다!");
-                }
-            });
+                // 슬라임 파편도 같이 튀게 (시각적 효과 강화)
+                entity.getWorld().spawnParticle(
+                        Particle.ITEM,
+                        entity.getLocation().add(0, 0.5, 0),
+                        30, 0.5, 0.5, 0.5, 0.2,
+                        new ItemStack(Material.SLIME_BALL)
+                );
+
+                // 소리: 폭발음 + 슬라임 소리
+                entity.getWorld().playSound(entity.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1f, 1f);
+                entity.getWorld().playSound(entity.getLocation(), Sound.ENTITY_SLIME_SQUISH, 1f, 0.5f);
+
+                // 독 데미지
+                entity.getNearbyEntities(3, 3, 3).forEach(target -> {
+                    if (target instanceof Player p) {
+                        p.damage(5.0);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1));
+                        p.sendMessage("§2[독] 맹독 슬라임이 자폭했습니다!");
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // 2. [신규] 슬라임 분열 방지
+    @EventHandler
+    public void onSlimeSplit(SlimeSplitEvent event) {
+        Slime slime = event.getEntity();
+        String mobId = CoreProvider.getCustomMobId(slime);
+
+        // 우리 맹독 슬라임이라면 분열 금지
+        if (mobId != null && mobId.endsWith("toxic_slime")) {
+            event.setCancelled(true);
         }
     }
 }

@@ -87,19 +87,20 @@ public class MapManager {
                     plugin.getLogger().warning("구조물 파일이 없습니다: " + file.getAbsolutePath());
                     return;
                 }
-
-                // 2. 구조물 로드
                 Structure structure = structureManager.loadStructure(file);
 
-                // 3. 메인 스레드에서 설치 (블록 변경은 동기 처리 필수)
                 Bukkit.getScheduler().runTask(plugin, () -> {
+                    // [수정] 요청하신 오프셋 (-23, 1, -23) 적용
+                    // clone()을 사용하여 원본 좌표 객체에 영향을 주지 않도록 함
+                    Location pasteLoc = location.clone().add(-23, 0, -23);
+
                     structure.place(
-                            location,
+                            pasteLoc, // 수정된 좌표 사용
                             includeEntities,
                             StructureRotation.NONE,
                             Mirror.NONE,
-                            0, // palette
-                            1.0f, // integrity (1.0 = 100% 온전하게)
+                            0,
+                            1.0f,
                             random
                     );
                     // plugin.getLogger().info("구조물 생성 완료: " + fileName);
