@@ -68,6 +68,13 @@ public class ParticleBuilder {
         return this;
     }
 
+    // [추가] 정수형 CMD 직접 설정 (setCustomTexture의 별칭)
+    public ParticleBuilder setCustomModelData(int cmd) {
+        this.customModelData = cmd;
+        this.particle = Particle.ITEM; // 아이템 파티클로 자동 변경
+        return this;
+    }
+
     // --- Getters ---
     public Particle getParticle() { return particle; }
     public int getCount() { return count; }

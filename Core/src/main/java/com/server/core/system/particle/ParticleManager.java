@@ -197,6 +197,42 @@ public class ParticleManager {
     }
 
     /**
+     * [신규] 방향성 있는 원(고리) 그리기
+     * 특정 방향(direction)을 축으로 하는 원을 그립니다. (예: 소닉붐, 마법진)
+     *
+     * @param center 중심 위치
+     * @param direction 원이 바라보는 방향 (축)
+     * @param radius 반지름
+     * @param points 점 개수
+     * @param builder 파티클 설정
+     */
+    public void drawRing(Location center, Vector direction, double radius, int points, ParticleBuilder builder) {
+        Vector dir = direction.clone().normalize();
+
+        // 1. 기준 축 계산 (dir에 수직인 평면 찾기)
+        // 만약 dir이 Y축과 거의 평행하다면 X축을 임시 기준으로 잡음
+        Vector up = new Vector(0, 1, 0);
+        if (Math.abs(dir.getY()) > 0.95) up = new Vector(1, 0, 0);
+
+        Vector right = dir.getCrossProduct(up).normalize();     // 오른쪽 벡터
+        Vector trueUp = right.getCrossProduct(dir).normalize(); // 위쪽 벡터 (진행방향 기준)
+
+        // 2. 원 그리기
+        for (int i = 0; i < points; i++) {
+            double angle = 2 * Math.PI * i / points;
+
+            // 평면상의 좌표
+            double x = Math.cos(angle) * radius;
+            double y = Math.sin(angle) * radius;
+
+            // 벡터 합성 (Right * x + TrueUp * y)
+            Vector offset = right.clone().multiply(x).add(trueUp.clone().multiply(y));
+
+            spawn(center.clone().add(offset), builder);
+        }
+    }
+
+    /**
      * 검기/참격 그리기 (Improved Slash)
      * 플레이어 전방에 곡선 형태의 검기를 그립니다.
      *

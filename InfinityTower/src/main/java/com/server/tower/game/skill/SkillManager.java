@@ -2,6 +2,8 @@ package com.server.tower.game.skill;
 
 import com.server.core.api.CoreProvider;
 import com.server.tower.TowerPlugin;
+import com.server.tower.game.skill.handler.AxeHandler;
+import com.server.tower.game.skill.handler.GreatswordHandler;
 import com.server.tower.game.skill.handler.SpearHandler;
 import com.server.tower.game.skill.handler.SwordHandler;
 import org.bukkit.Material;
@@ -24,10 +26,10 @@ public class SkillManager {
     private void registerHandlers() {
         // 무기 타입별 핸들러 등록 (소문자로 통일)
         SwordHandler sword = new SwordHandler();
+        handlers.put("greatsword", new GreatswordHandler());
         handlers.put("sword", sword);
-        handlers.put("greatsword", sword); // 대검도 일단 검 로직 공유 (나중에 GreatswordHandler 만들면 교체)
-        handlers.put("katana", sword);
         handlers.put("spear", new SpearHandler());
+        handlers.put("axe", new AxeHandler());
 
         // 추후 추가:
         // handlers.put("axe", new AxeHandler());
@@ -62,15 +64,15 @@ public class SkillManager {
 
         // 4. 실행
         if (isRightClick) {
-            // 쿨타임 체크 (키: skill_sword, skill_axe 등)
+            // 강공격도 콤보의 일부이므로 쿨타임 없이 바로 나가야 함.
+
+            /* 삭제된 코드
             String cooldownKey = "skill_" + typeStr.toLowerCase();
             if (CoreProvider.hasCooldown(player, cooldownKey)) return;
-
-            // [핵심] 핸들러에게 속성 정보를 같이 넘김!
-            handler.onRightClick(player, element);
-
-            // 쿨타임 적용 (예: 3초)
             CoreProvider.setCooldown(player, cooldownKey, 60L);
+            */
+
+            handler.onRightClick(player, element);
         } else {
             handler.onLeftClick(player, element);
         }

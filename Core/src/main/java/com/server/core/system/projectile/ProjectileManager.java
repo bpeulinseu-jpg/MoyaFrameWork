@@ -69,6 +69,7 @@ public class ProjectileManager {
 
     // [추가] 애니메이션 투사체 발사
     public void shootAnimated(LivingEntity shooter, double speed, double range,
+                              double forwardOffset, // [추가] 전방 거리 조절 변수
                               Vector scale,
                               Vector rotation,
                               int startCmd, int frameCount, int tickPerFrame, boolean loop,
@@ -78,7 +79,7 @@ public class ProjectileManager {
         Vector dir = loc.getDirection();
 
         // [수정] 위치를 전방으로 3.5칸 이동 (이 숫자를 늘리면 더 멀리서 나갑니다)
-        loc.add(dir.clone().multiply(5));
+        loc.add(dir.clone().multiply(forwardOffset));
 
         // 높이 보정 (눈높이보다 살짝 아래)
         loc.add(0, -0.5, 0);

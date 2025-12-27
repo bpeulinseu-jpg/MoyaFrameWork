@@ -334,9 +334,11 @@ public class CoreProvider {
         return CorePlugin.getParticleTextureManager().getModelData(id);
     }
 
-    public static void shootAnimatedProjectile(org.bukkit.entity.LivingEntity shooter, double speed, double range, org.bukkit.util.Vector scale, org.bukkit.util.Vector rotation, int startCmd, int frameCount, int tickPerFrame, boolean loop, java.util.function.Consumer<org.bukkit.entity.Entity> onHit) {
-        CorePlugin.getProjectileManager().shootAnimated(shooter, speed, range, scale, rotation, startCmd, frameCount, tickPerFrame, loop, onHit);
+    // [수정] forwardOffset 추가
+    public static void shootAnimatedProjectile(org.bukkit.entity.LivingEntity shooter, double speed, double range, double forwardOffset, org.bukkit.util.Vector scale, org.bukkit.util.Vector rotation, int startCmd, int frameCount, int tickPerFrame, boolean loop, java.util.function.Consumer<org.bukkit.entity.Entity> onHit) {
+        CorePlugin.getProjectileManager().shootAnimated(shooter, speed, range, forwardOffset, scale, rotation, startCmd, frameCount, tickPerFrame, loop, onHit);
     }
+
 
 
 }

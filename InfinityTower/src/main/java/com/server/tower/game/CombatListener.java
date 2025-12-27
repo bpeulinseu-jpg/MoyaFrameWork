@@ -40,6 +40,8 @@ public class CombatListener implements Listener {
 
         if (!(event.getDamager() instanceof Player player)) return;
         if (!(event.getEntity() instanceof LivingEntity victim)) return;
+        // [핵심] 스킬 발동 (좌클릭)
+        TowerPlugin.getInstance().getSkillManager().castSkill(player, false);
 
         // [핵심] DamageCalculator에게 계산 위임
         // 평타이므로 계수 1.0, isSkill = false (쿨타임 패널티 적용)
