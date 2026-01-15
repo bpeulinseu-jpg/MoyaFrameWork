@@ -19,14 +19,12 @@ public class ItemGenerator {
         private enum BonusStat {
             // 1차 스탯
             STR("stat_str", "힘", false),
-            DEX("stat_dex", "민첩", false),
             INT("stat_int", "지능", false),
             VIT("stat_vit", "활력", false),
             LUK("stat_luk", "행운", false),
 
             // 공격 관련
             PHYS_ATK("stat_phys_atk", "물리 공격력", true),
-            MAG_ATK("stat_mag_atk", "마법 공격력", true),
             CRIT_CHANCE("stat_crit_chance", "치명타 확률", true), // % 표시
             CRIT_DAMAGE("stat_crit_damage", "치명타 피해", true), // % 표시
 
@@ -67,8 +65,12 @@ public class ItemGenerator {
         double finalDamage = baseDmgCalc * prefix.getDamageMult() * tier.getStatMultiplier();
         double attackSpeed = 1.6 * prefix.getSpeedMult();
 
-        if (type.isTwoHanded()) {
-            finalDamage *= 1.5;
+        // [수정] 무기별 특성 보정
+        if (type == WeaponType.DAGGER) {
+            finalDamage *= 0.7; // 단검은 깡딜 낮음
+            attackSpeed *= 1.5; // 공속 빠름
+        } else if (type == WeaponType.HAMMER || type == WeaponType.GREATSWORD) {
+            finalDamage *= 1.5; // 묵직함
             attackSpeed *= 0.6;
         }
 
@@ -158,7 +160,6 @@ public class ItemGenerator {
             // stat 레벨비례 1~1.2배율
             case VIT:
             case LUK:
-            case INT:
             case DEF:
             case STR:
                 double statMult = 1 + (random.nextDouble() * 0.2);
@@ -186,7 +187,6 @@ public class ItemGenerator {
 
             // 4. 물리/마법 공격력 (고정: 0.01 ~ 0.5 -> 1% ~ 50%)
             case PHYS_ATK:
-            case MAG_ATK:
                 // int 저장을 위해 x100 스케일링 (1 ~ 50)
                 base = 1 + (random.nextDouble() * 49);
                 break;

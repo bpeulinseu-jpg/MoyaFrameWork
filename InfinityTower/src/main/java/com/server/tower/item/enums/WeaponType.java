@@ -8,13 +8,11 @@ public enum WeaponType {
     AXE("도끼", "str", false, Material.IRON_AXE),
     GREATSWORD("대검", "str", true, Material.IRON_SWORD),
     SPEAR("창", "str", true, Material.IRON_SWORD), // 리소스팩으로 창 모양 적용
-
-    // 마법 (INT 기반)
-    WAND("지팡이", "int", false, Material.STICK),
-    GREATSTAFF("큰 지팡이", "int", true, Material.BLAZE_ROD);
+    DAGGER("단검", "str", false, Material.IRON_SWORD),
+    HAMMER("망치", "str", true, Material.IRON_AXE);
 
     private final String name;
-    private final String scalingStat; // "str" 또는 "int"
+    private final String scalingStat; // "str"
     private final boolean twoHanded;
     private final Material baseMaterial;
 

@@ -5,7 +5,7 @@ public enum ArmorElement {
     FIRE("§c[화염]", "stat_phys_atk", "물리 공격력"), // 힘 대신 물리 공격력 직접 증가로 변경
     ICE("§b[혹한]", "stat_def", "방어력"),
     STORM("§e[폭풍]", "stat_move_speed", "이동 속도"), //
-    LIGHT("§f[빛]", "stat_mag_atk", "마법 공격력"),    //
+    LIGHT("§f[빛]", "stat_phys_atk", "물리 공격력"),    //
     DARK("§5[어둠]", "stat_crit_damage", "치명타 피해"), //
     WIND("§e[바람]", "stat_dodge", "회피 확률");
 

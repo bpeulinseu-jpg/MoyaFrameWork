@@ -33,9 +33,6 @@ public class ShopManager {
         // 3. 민첩 강화 (DEX)
         setupUpgradeButton(gui, 14, player, data, "dex", "민첩 (DEX)", Material.FEATHER, data.statDex);
 
-        // 4. 지능 강화 (INT)
-        setupUpgradeButton(gui, 16, player, data, "int", "지능 (INT)", Material.BLAZE_ROD, data.statInt);
-
         // 5. 행운 강화 (LUK)
         setupUpgradeButton(gui, 22, player, data, "luk", "운 (LUK)", Material.EMERALD, data.statLuk);
     }
@@ -64,7 +61,6 @@ public class ShopManager {
                     case "str" -> data.statStr++;
                     case "vit" -> data.statVit++;
                     case "dex" -> data.statDex++;
-                    case "int" -> data.statInt++;
                     case "luk" -> data.statLuk++;
                 }
 

@@ -61,7 +61,6 @@ public class UserManager {
         CoreProvider.setBaseStat(player, "str", data.statStr);
         CoreProvider.setBaseStat(player, "vit", data.statVit);
         CoreProvider.setBaseStat(player, "dex", data.statDex);
-        CoreProvider.setBaseStat(player, "int", data.statInt);
         CoreProvider.setBaseStat(player, "luk", data.statLuk);
         // 2차 스탯으로 데이터 변환
 
@@ -74,9 +73,6 @@ public class UserManager {
         // 민첩 Dex -> 이동속도 , 회피확률
         CoreProvider.setBaseStat(player, "move_speed", data.statDex * 0.01); // % 단위로 저장 (나중에 /100)
         CoreProvider.setBaseStat(player, "dodge", data.statDex * 0.01);
-        // 지능 int -> 마법 공격력, 쿨타임 감소
-        CoreProvider.setBaseStat(player, "mag_atk", data.statInt * 1.0);
-        CoreProvider.setBaseStat(player, "cdr", data.statInt * 0.25);
         // 행운 Luk -> 치명타 확률, 치명타 피해
         CoreProvider.setBaseStat(player, "crit_chance", 1.0 + (data.statLuk * 0.01));
         CoreProvider.setBaseStat(player, "crit_damage", 150.0 + (data.statLuk * 0.1));

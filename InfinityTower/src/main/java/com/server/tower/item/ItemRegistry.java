@@ -32,11 +32,9 @@ public class ItemRegistry {
         register("axe", Material.IRON_AXE, "도끼");
         register("greatsword", Material.IRON_SWORD, "대검");
         register("spear", Material.IRON_SWORD, "창");
-        register("wand", Material.IRON_SHOVEL, "지팡이");
-        register("greatstaff", Material.IRON_SHOVEL, "큰 지팡이");
-
+        register("dagger", Material.IRON_SWORD, "단검");
+        register("hammer", Material.IRON_AXE, "망치");
         register("gem_str", Material.EMERALD, "§c힘의 보석");
-        register("gem_int", Material.LAPIS_LAZULI, "§b지능의 보석");
 
         saveBaseTextures();
 

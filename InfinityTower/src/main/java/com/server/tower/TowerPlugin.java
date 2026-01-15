@@ -303,7 +303,6 @@ public class TowerPlugin extends JavaPlugin implements CoreAddon {
                     case "str" -> data.statStr = amount;
                     case "vit" -> data.statVit = amount;
                     case "dex" -> data.statDex = amount;
-                    case "int" -> data.statInt = amount;
                     case "gold" -> data.gold = amount;
                     case "luk" -> data.statLuk = amount;
                     case "etr" -> data.ether = amount;

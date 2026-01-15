@@ -30,21 +30,18 @@ public class DamageCalculator {
     public static DamageResult calculate(Player attacker, LivingEntity victim, double skillMultiplier, boolean isSkill) {
         ItemStack weapon = attacker.getInventory().getItemInMainHand();
 
-        // 1. 기본 무기 대미지 확인
-        double phys = CoreProvider.getItemDataInt(weapon, "stat_phys_atk");
-        double mag = CoreProvider.getItemDataInt(weapon, "stat_mag_atk");
-        double base = CoreProvider.getItemDataInt(weapon, "damage");
+        // 1. 무기 대미지 (물리만 존재)
+        double weaponDamage = CoreProvider.getItemDataInt(weapon, "stat_phys_atk");
+        if (weaponDamage <= 0) weaponDamage = 1.0;
 
-        double weaponDamage = Math.max(phys, Math.max(mag, base));
-        if (weaponDamage <= 0) weaponDamage = 1.0; // 맨손 등
-
-        // 2. 스탯 보정 (STR/INT)
+        // 2. 스탯 보정 (STR or DEX)
         String scalingStat = CoreProvider.getItemDataString(weapon, "scaling_stat");
         double statValue;
-        if ("mag_atk".equals(scalingStat)) {
-            statValue = CoreProvider.getStat(attacker, "int");
+
+        if ("dex".equalsIgnoreCase(scalingStat)) {
+            statValue = CoreProvider.getStat(attacker, "dex"); // 단검 등
         } else {
-            statValue = CoreProvider.getStat(attacker, "str");
+            statValue = CoreProvider.getStat(attacker, "str"); // 검, 도끼, 망치 등 (기본)
         }
 
         // 기본 공식: (무기댐 * 스킬계수) * (1 + 스탯%)
